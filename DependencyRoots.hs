@@ -6,7 +6,7 @@ import Debian.Control.ByteString
 import Debian.Relation
 import Text.ParserCombinators.Parsec.Error
 
-import Data.Graph
+import Data.Graph.Inductive
 import Data.Tree
 import Data.List
 import Data.Maybe
@@ -30,35 +30,39 @@ putErr :: String -> ParseError -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
 putRoots :: Control -> IO ()
-putRoots = mapM_ (putStrLn . pkgName) . sortBy cmpName . map rootLabel . packageTree
-    where cmpName = compare `on` fieldValue "Package"
+putRoots = mapM_ putStrLn . sort . map rootLabel . packageTree
 
 putTree :: Control -> IO ()
-putTree = putStr . drawForest . sortBy cmpRoot . map (fmap pkgName) . packageTree
+putTree = putStr . drawForest . sortBy cmpRoot . packageTree
     where cmpRoot = compare `on` rootLabel
 
-packageTree :: Control -> Forest Package
-packageTree c =
+packageGraph :: Control -> (Gr String (), NodeMap String)
+packageGraph c =
     let ps = filter pkgIsInstalled . unControl $ c
-        (g, vmap, kmap) = graphFromEdges $ map mkNode ps
-        mkNode p = (p, pkgName p, pkgDeps p)
-        vertexData = fst3 . vmap
-    in  map (fmap vertexData) (dff g)
+        ds = map pkgDeps ps
+        nodes = map pkgName ps `union` concat ds
+        edges = concatMap mkEdges ps
+        mkEdges p = map (\d -> (pkgName p, d, ())) (pkgDeps p)
+    in mkMapGraph nodes edges
+
+packageTree :: Control -> Forest String
+packageTree c = map (fmap $ fromMaybe "" . lab g) $ dff' g
+    where g = fst . packageGraph $ c
 
 pkgName :: Package -> String
-pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
+pkgName = B.unpack . fromMaybe (B.pack "Unnamed") . fieldValue "Package"
 
 pkgIsInstalled :: Package -> Bool
 pkgIsInstalled = maybe False installed . fieldValue "Status"
     where parseStatus = B.split ' ' . stripWS
           installed v = parseStatus v !! 2 == B.pack "installed"
 
-pkgDeps :: Package -> [PkgName]
+pkgDeps :: Package -> [String]
 pkgDeps p =
-    let depsField = maybe "" B.unpack $ fieldValue "Depends" p
+    let depsField = B.unpack $ fromMaybe B.empty $ fieldValue "Depends" p
         depsRels  = fromRight $ parseRelations depsField
         depsNames = map (relName . head) $ filter nonAlt depsRels
-        recsField = maybe "" B.unpack $ fieldValue "Recommends" p
+        recsField = B.unpack $ fromMaybe B.empty $ fieldValue "Recommends" p
         recsRels  = fromRight $ parseRelations recsField
         recsNames = map (relName . head) $ filter nonAlt recsRels
         relName (Rel name _ _) = name
