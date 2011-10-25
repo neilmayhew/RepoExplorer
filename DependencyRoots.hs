@@ -38,11 +38,12 @@ putForest = putStr . drawForest . sortBy cmpRoot . packageForest
 
 packageGraph :: Control -> (Gr String (), NodeMap String)
 packageGraph c =
-    let ps = filter pkgIsInstalled . unControl $ c
-        ds = map pkgDeps ps
-        nodes = map pkgName ps `union` concat ds
-        edges = concatMap mkEdges ps
-        mkEdges p = map (\d -> (pkgName p, d, ())) (pkgDeps p)
+    let pkgs = filter pkgIsInstalled . unControl $ c
+        nodes = map pkgName pkgs
+        edges = concatMap mkEdges pkgs
+        mkEdges p = map (mkEdge p) . filter installed . pkgDeps $ p
+        mkEdge p d = (pkgName p, d, ())
+        installed name = name `elem` nodes
     in mkMapGraph nodes edges
 
 packageForest :: Control -> Forest String
@@ -64,10 +65,10 @@ pkgDeps :: Package -> [String]
 pkgDeps p =
     let depsField = B.unpack $ fromMaybe B.empty $ fieldValue "Depends" p
         depsRels  = fromRight $ parseRelations depsField
-        depsNames = map (relName . head) $ filter nonAlt depsRels
+        depsNames = map (relName . head) depsRels
         recsField = B.unpack $ fromMaybe B.empty $ fieldValue "Recommends" p
         recsRels  = fromRight $ parseRelations recsField
-        recsNames = map (relName . head) $ filter nonAlt recsRels
+        recsNames = map (relName . head) recsRels
         relName (Rel name _ _) = name
         nonAlt r = length r == 1
     in depsNames ++ recsNames
