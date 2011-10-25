@@ -24,16 +24,16 @@ type FieldValue = B.ByteString
 type PackageName = FieldValue
 
 main = processFilePathsWith $ parseControlFromFile
-            >=> either (putErr "Parse error") (putTree)
+            >=> either (putErr "Parse error") (putForest)
 
 putErr :: String -> ParseError -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
 putRoots :: Control -> IO ()
-putRoots = mapM_ putStrLn . sort . map rootLabel . packageTree
+putRoots = mapM_ putStrLn . sort . packageRoots
 
-putTree :: Control -> IO ()
-putTree = putStr . drawForest . sortBy cmpRoot . packageTree
+putForest :: Control -> IO ()
+putForest = putStr . drawForest . sortBy cmpRoot . packageForest
     where cmpRoot = compare `on` rootLabel
 
 packageGraph :: Control -> (Gr String (), NodeMap String)
@@ -45,9 +45,12 @@ packageGraph c =
         mkEdges p = map (\d -> (pkgName p, d, ())) (pkgDeps p)
     in mkMapGraph nodes edges
 
-packageTree :: Control -> Forest String
-packageTree c = map (fmap $ fromMaybe "" . lab g) $ dff' g
+packageForest :: Control -> Forest String
+packageForest c = map (fmap $ fromMaybe "" . lab g) $ dff (topsort g) g
     where g = fst . packageGraph $ c
+
+packageRoots :: Control -> [String]
+packageRoots = map rootLabel . packageForest
 
 pkgName :: Package -> String
 pkgName = B.unpack . fromMaybe (B.pack "Unnamed") . fieldValue "Package"
