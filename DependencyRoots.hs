@@ -36,11 +36,13 @@ putForest :: Control -> IO ()
 putForest = putStr . drawForest . sortBy cmpRoot . packageForest
   where cmpRoot = compare `on` rootLabel
 
+graphForest :: Gr a b -> Forest a
+graphForest g = map labelTree forest
+  where forest = dff (topsort g) g
+        labelTree = fmap (fromJust . lab g)
+
 packageForest :: Control -> Forest String
-packageForest c = map labelTree forest
-  where g = fst . packageGraph $ c
-        forest = dff (topsort g) g
-        labelTree = fmap (fromMaybe "" . lab g)
+packageForest = graphForest . fst . packageGraph
 
 packageGraph :: Control -> (Gr String (), NodeMap String)
 packageGraph c = mkMapGraph nodes edges
