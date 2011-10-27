@@ -63,12 +63,8 @@ pkgIsInstalled = maybe False installed . fieldValue "Status"
 
 pkgDeps :: Package -> [String]
 pkgDeps p =
-    let depsField = B.unpack $ fromMaybe B.empty $ fieldValue "Depends" p
-        depsRels  = fromRight $ parseRelations depsField
-        depsNames = map (relName . head) depsRels
-        recsField = B.unpack $ fromMaybe B.empty $ fieldValue "Recommends" p
-        recsRels  = fromRight $ parseRelations recsField
-        recsNames = map (relName . head) recsRels
+    let field = B.unpack . fromMaybe B.empty . flip fieldValue p
+        rels = fromRight . parseRelations . field
+        names = map (relName . head) . rels
         relName (Rel name _ _) = name
-        nonAlt r = length r == 1
-    in depsNames ++ recsNames
+    in names "Depends" ++ names "Recommends"
