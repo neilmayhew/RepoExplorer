@@ -30,41 +30,38 @@ putErr :: String -> ParseError -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
 putRoots :: Control -> IO ()
-putRoots = mapM_ putStrLn . sort . packageRoots
+putRoots = mapM_ putStrLn . sort . map rootLabel . packageForest
 
 putForest :: Control -> IO ()
 putForest = putStr . drawForest . sortBy cmpRoot . packageForest
-    where cmpRoot = compare `on` rootLabel
+  where cmpRoot = compare `on` rootLabel
+
+packageForest :: Control -> Forest String
+packageForest c = map labelTree forest
+  where g = fst . packageGraph $ c
+        forest = dff (topsort g) g
+        labelTree = fmap (fromMaybe "" . lab g)
 
 packageGraph :: Control -> (Gr String (), NodeMap String)
-packageGraph c =
-    let pkgs = filter pkgIsInstalled . unControl $ c
+packageGraph c = mkMapGraph nodes edges
+  where pkgs = filter pkgIsInstalled . unControl $ c
         nodes = map pkgName pkgs
         edges = concatMap mkEdges pkgs
         mkEdges p = map (mkEdge p) . filter installed . pkgDeps $ p
         mkEdge p d = (pkgName p, d, ())
         installed name = name `elem` nodes
-    in mkMapGraph nodes edges
-
-packageForest :: Control -> Forest String
-packageForest c = map (fmap $ fromMaybe "" . lab g) $ dff (topsort g) g
-    where g = fst . packageGraph $ c
-
-packageRoots :: Control -> [String]
-packageRoots = map rootLabel . packageForest
 
 pkgName :: Package -> String
-pkgName = B.unpack . fromMaybe (B.pack "Unnamed") . fieldValue "Package"
+pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
 
 pkgIsInstalled :: Package -> Bool
-pkgIsInstalled = maybe False installed . fieldValue "Status"
-    where parseStatus = B.split ' ' . stripWS
-          installed v = parseStatus v !! 2 == B.pack "installed"
+pkgIsInstalled = maybe False isInstalled . fieldValue "Status"
+  where isInstalled v = parseStatus v !! 2 == B.pack "installed"
+        parseStatus = B.split ' ' . stripWS
 
 pkgDeps :: Package -> [String]
-pkgDeps p =
-    let field = B.unpack . fromMaybe B.empty . flip fieldValue p
+pkgDeps p = names "Depends" ++ names "Recommends"
+  where field = B.unpack . fromMaybe B.empty . flip fieldValue p
         rels = fromRight . parseRelations . field
         names = map (relName . head) . rels
         relName (Rel name _ _) = name
-    in names "Depends" ++ names "Recommends"
