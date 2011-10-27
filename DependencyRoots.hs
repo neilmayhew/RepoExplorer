@@ -12,8 +12,7 @@ import Data.List
 import Data.Maybe
 import Data.Either
 import Data.Either.Utils
-import Data.Tuple.Utils
-import Data.Function
+import Data.Ord
 import Control.Monad
 import System.IO
 
@@ -24,17 +23,13 @@ type FieldValue = B.ByteString
 type PackageName = FieldValue
 
 main = processFilePathsWith $ parseControlFromFile
-            >=> either (putErr "Parse error") (putForest)
+            >=> either (putErr "Parse error") (putForest drawTree . packageForest)
 
 putErr :: String -> ParseError -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
-putRoots :: Control -> IO ()
-putRoots = mapM_ putStrLn . sort . map rootLabel . packageForest
-
-putForest :: Control -> IO ()
-putForest = putStr . drawForest . sortBy cmpRoot . packageForest
-  where cmpRoot = compare `on` rootLabel
+putForest :: (Ord a, Show a) => (Tree a -> String) -> Forest a -> IO ()
+putForest f = mapM_ putStrLn . map f . sortBy (comparing rootLabel)
 
 graphForest :: Gr a b -> Forest a
 graphForest g = map labelTree forest
