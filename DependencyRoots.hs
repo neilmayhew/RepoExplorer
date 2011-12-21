@@ -1,6 +1,6 @@
-module Main where
+{-# LANGUAGE DeriveDataTypeable #-}
 
-import Utilities
+module Main where
 
 import Debian.Control.ByteString
 import Debian.Relation
@@ -16,16 +16,35 @@ import Data.Ord
 import Control.Monad
 import System.IO
 
+import System.Console.CmdArgs.Implicit
+
 import qualified Data.ByteString.Char8 as B
 
 type Package = Paragraph
 type FieldValue = B.ByteString
 type PackageName = FieldValue
 
-main = processFilePathsWith $ parseControlFromFile
-            >=> either (putErr "Parse error") (putRoots graphForest showTree)
-  where showAlts = intercalate "|" . flatten
+data Options = Options
+    { statusFile :: String
+    , forest     :: Bool }
+    deriving (Show, Data, Typeable)
+
+options = Options
+    { statusFile = def &= typ "STATUSFILE" &= argPos 0 &= opt "/var/lib/dpkg/status"
+    , forest = False &= help "Show dependency forest" &= groupname "Options" }
+        &= program "DependencyRoots"
+        &= summary "DependencyRoots v0.5"
+        &= details ["STATUSFILE defaults to /var/lib/dpkg/status"]
+
+main = do
+    args <- cmdArgs options
+    (parseControlFromFile $ statusFile args)
+        >>= either (putErr "Parse error") (putControl $ forest args)
+  where putControl asForest = if asForest
+            then putRoots graphForest showTree
+            else putRoots graphRoots  showAlts
         showTree = drawTree
+        showAlts = intercalate "|" . flatten
 
 putErr :: String -> ParseError -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
