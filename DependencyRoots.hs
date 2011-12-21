@@ -23,21 +23,28 @@ type FieldValue = B.ByteString
 type PackageName = FieldValue
 
 main = processFilePathsWith $ parseControlFromFile
-            >=> either (putErr "Parse error") (putForest drawTree . packageForest)
+            >=> either (putErr "Parse error") (putRoots graphForest showTree)
+  where showAlts = intercalate "|" . flatten
+        showTree = drawTree
 
 putErr :: String -> ParseError -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
-putForest :: (Ord a, Show a) => (Tree a -> String) -> Forest a -> IO ()
-putForest f = mapM_ putStrLn . map f . sortBy (comparing rootLabel)
+putRoots :: (Gr String () -> Forest String) -> (Tree String -> String) -> Control -> IO ()
+putRoots fRoots fShow = mapM_ putStrLn . map fShow . sortForest . fRoots . fst . packageGraph
+  where sortForest = sortBy (comparing rootLabel)
+
+graphRoots :: Gr a b -> Forest a
+graphRoots g = map labelAlts alternates
+  where forest = dff (topsort g) g
+        alternates = map (ancestors . rootLabel) forest
+        ancestors n = head $ rdff [n] g
+        labelAlts = fmap (fromJust . lab g)
 
 graphForest :: Gr a b -> Forest a
 graphForest g = map labelTree forest
   where forest = dff (topsort g) g
         labelTree = fmap (fromJust . lab g)
-
-packageForest :: Control -> Forest String
-packageForest = graphForest . fst . packageGraph
 
 packageGraph :: Control -> (Gr String (), NodeMap String)
 packageGraph c = mkMapGraph nodes edges
