@@ -24,14 +24,18 @@ type Package = Paragraph
 type FieldValue = B.ByteString
 type PackageName = FieldValue
 
+data Style = Roots | Forest
+    deriving (Show, Data, Typeable)
+
 data Options = Options
     { statusFile :: String
-    , forest     :: Bool }
+    , style      :: Style }
     deriving (Show, Data, Typeable)
 
 options = Options
     { statusFile = def &= typ "STATUSFILE" &= argPos 0 &= opt "/var/lib/dpkg/status"
-    , forest = False &= help "Show dependency forest" &= groupname "Options" }
+    , style = enum [Roots &= help "Show dependency roots (default)", Forest &= help "Show dependency forest"]
+            &= groupname "Options" }
         &= program "DependencyRoots"
         &= summary "DependencyRoots v0.5"
         &= details ["STATUSFILE defaults to /var/lib/dpkg/status"]
@@ -39,10 +43,10 @@ options = Options
 main = do
     args <- cmdArgs options
     (parseControlFromFile $ statusFile args)
-        >>= either (putErr "Parse error") (putControl $ forest args)
-  where putControl asForest = if asForest
-            then putRoots graphForest showTree
-            else putRoots graphRoots  showAlts
+        >>= either (putErr "Parse error") (putControl $ style args)
+  where putControl style = case style of
+            Roots  -> putRoots graphRoots  showAlts
+            Forest -> putRoots graphForest showTree
         showTree = drawTree
         showAlts = intercalate "|" . flatten
 
