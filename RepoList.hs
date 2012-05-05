@@ -30,25 +30,25 @@ showSuite :: String -> String -> IO ()
 showSuite m s = do
     release' <- parseControlFromFile $ m </> s </> "Release"
     let release = head . unControl . fromRight $ release'
-    let components = maybe [] (words . B.unpack) . fieldValue "Components"    $ release
+        components = maybe [] (words . B.unpack) . fieldValue "Components"    $ release
         arches'    = maybe [] (words . B.unpack) . fieldValue "Architectures" $ release
         arches     = sort arches' ++ ["source"]
     forM_ components $ \c -> do
         forM_ arches $ \a -> do
-            showPackages $ m </> s </> c </> archIndex a
+            showPackages m s c a
 
 archIndex a = case a of
     "source" ->              a </> "Sources.gz"
     _        -> "binary-" ++ a </> "Packages.gz"
 
-showPackages filename = do
+showPackages m s c a = do
+    let filename = m </> s </> c </> archIndex a
     parseResult <- parseControl filename `liftM` readZipped filename
-    either (putErr "Parse error") (putStr . showPackages' filename) parseResult
+    either (putErr "Parse error") (putStr . showPackages' s c a) parseResult
 
-showPackages' filename control =
+showPackages' s c a control =
     unlines . map showPackage . sortBy (compare `on` pkgName) . unControl $ control
-  where [dist, section, arch] = final 3 . splitDirectories . takeDirectory $ filename
-        showPackage p = printf "%s %s %s %s %s" dist section arch (pkgName p) (pkgVersion p)
+  where showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
