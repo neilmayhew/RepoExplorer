@@ -6,6 +6,7 @@ import Text.ParserCombinators.Parsec.Error
 import Text.Printf
 import Data.List
 import Data.Maybe
+import Data.Either.Utils
 import Data.Function
 import Control.Monad
 import System.IO
@@ -22,13 +23,21 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 type Package = Paragraph
 
 main = do
-    roots <- getArgs
-    files <- concat `liftM` mapM (recurseDir SystemFS) roots
-    let lists = sortDirs . filter isList $ files
-    forM_ lists $ \f -> readZipped f >>= showPackages f
-  where
-    sortDirs = sortBy (compare `on` splitDirectories)
-    isList = (`elem` ["Packages.gz", "Sources.gz"]) . takeFileName
+    (mirror:suites) <- getArgs
+    forM_ suites $ showSuite mirror
+
+showSuite :: String -> String -> IO ()
+showSuite m s = do
+    release' <- parseControlFromFile $ m </> s </> "Release"
+    let release = head . unControl . fromRight $ release'
+    let components = maybe [] (words . B.unpack) . fieldValue "Components"    $ release
+        arches     = maybe [] (words . B.unpack) . fieldValue "Architectures" $ release
+        indexes = map (\a -> "binary-" ++ a </> "Packages.gz") (sort arches)
+                    ++ ["source" </> "Sources.gz"]
+    forM_ components $ \c -> do
+        forM_ indexes $ \i -> do
+            let f = m </> s </> c </> i
+            readZipped f >>= showPackages f
 
 readZipped filename = decompress `fmap` LB.readFile filename
   where decompress' = case takeExtension filename of
