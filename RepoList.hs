@@ -31,34 +31,39 @@ showSuite m s = do
     release' <- parseControlFromFile $ m </> s </> "Release"
     let release = head . unControl . fromRight $ release'
     let components = maybe [] (words . B.unpack) . fieldValue "Components"    $ release
-        arches     = maybe [] (words . B.unpack) . fieldValue "Architectures" $ release
-        indexes = map (\a -> "binary-" ++ a </> "Packages.gz") (sort arches)
-                    ++ ["source" </> "Sources.gz"]
+        arches'    = maybe [] (words . B.unpack) . fieldValue "Architectures" $ release
+        arches     = sort arches' ++ ["source"]
     forM_ components $ \c -> do
-        forM_ indexes $ \i -> do
-            let f = m </> s </> c </> i
-            readZipped f >>= showPackages f
+        forM_ arches $ \a -> do
+            showPackages $ m </> s </> c </> archIndex a
 
-readZipped filename = decompress `fmap` LB.readFile filename
-  where decompress' = case takeExtension filename of
-            ".gz" -> GZip.decompress
-            _     -> id
-        decompress = B.concat . LB.toChunks . decompress'
+archIndex a = case a of
+    "source" ->              a </> "Sources.gz"
+    _        -> "binary-" ++ a </> "Packages.gz"
 
-showPackages filename = either (putErr "Parse error") (putStr . showControl filename) . parseControl filename
+showPackages filename = do
+    parseResult <- parseControl filename `liftM` readZipped filename
+    either (putErr "Parse error") (putStr . showPackages' filename) parseResult
 
-showControl filename control = 
+showPackages' filename control =
     unlines . map showPackage . sortBy (compare `on` pkgName) . unControl $ control
   where [dist, section, arch] = final 3 . splitDirectories . takeDirectory $ filename
         showPackage p = printf "%s %s %s %s %s" dist section arch (pkgName p) (pkgVersion p)
-
-putErr :: String -> ParseError -> IO ()
-putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
 
 pkgVersion :: Package -> String
 pkgVersion = maybe "Unversioned" B.unpack . fieldValue "Version"
+
+readZipped :: String -> IO B.ByteString
+readZipped filename = decompress `fmap` LB.readFile filename
+  where decompress' = case takeExtension filename of
+            ".gz" -> GZip.decompress
+            _     -> id
+        decompress = B.concat . LB.toChunks . decompress'
+
+putErr :: String -> ParseError -> IO ()
+putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
 final n xs = drop (length xs - n) xs
