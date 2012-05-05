@@ -24,10 +24,10 @@ type Package = Paragraph
 
 main = do
     (mirror:suites) <- getArgs
-    forM_ suites $ showSuite mirror
+    forM_ suites $ putSuite mirror
 
-showSuite :: String -> String -> IO ()
-showSuite m s = do
+putSuite :: String -> String -> IO ()
+putSuite m s = do
     release' <- parseControlFromFile $ m </> s </> "Release"
     let release = head . unControl . fromRight $ release'
         components = maybe [] (words . B.unpack) . fieldValue "Components"    $ release
@@ -35,20 +35,20 @@ showSuite m s = do
         arches     = sort arches' ++ ["source"]
     forM_ components $ \c -> do
         forM_ arches $ \a -> do
-            showPackages m s c a
+            putArch m s c a
+
+putArch m s c a = do
+    let filename = m </> s </> c </> archIndex a
+    parseResult <- parseControl filename `liftM` readZipped filename
+    either (putErr "Parse error") (putStr . showPackages s c a) parseResult
+
+showPackages s c a control =
+    unlines . map showPackage . sortBy (compare `on` pkgName) . unControl $ control
+  where showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
 
 archIndex a = case a of
     "source" ->              a </> "Sources.gz"
     _        -> "binary-" ++ a </> "Packages.gz"
-
-showPackages m s c a = do
-    let filename = m </> s </> c </> archIndex a
-    parseResult <- parseControl filename `liftM` readZipped filename
-    either (putErr "Parse error") (putStr . showPackages' s c a) parseResult
-
-showPackages' s c a control =
-    unlines . map showPackage . sortBy (compare `on` pkgName) . unControl $ control
-  where showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
