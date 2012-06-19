@@ -22,17 +22,15 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 
 type Package = Paragraph
 
+components = ["main"]
+arches     = ["amd64", "i386", "source"]
+
 main = do
     (mirror:suites) <- getArgs
     forM_ suites $ putSuite mirror
 
 putSuite :: String -> String -> IO ()
 putSuite m s = do
-    release' <- parseControlFromFile $ m </> s </> "Release"
-    let release = head . unControl . fromRight $ release'
-        components = maybe [] (words . B.unpack) . fieldValue "Components"    $ release
-        arches'    = maybe [] (words . B.unpack) . fieldValue "Architectures" $ release
-        arches     = sort arches' ++ ["source"]
     forM_ components $ \c -> do
         forM_ arches $ \a -> do
             putArch m s c a
