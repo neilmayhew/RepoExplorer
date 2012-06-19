@@ -88,16 +88,19 @@ checkPackageFile :: String -> String -> String -> String -> FilePath -> Integer 
 checkPackageFile s c a pnm fnm psz pmd = do
     exists <- doesFileExist fnm
     if not exists
-        then hPutStrLn stderr $ printf "%s/%s/%s/%s/%s: File missing %s" s c a pnm (takeFileName fnm) fnm
+        then putErr $ printf "File missing %s" fnm
         else do
             fsz <- (toInteger . fileSize) `liftM` getFileStatus fnm
             if fsz /= psz
-                then hPutStrLn stderr $ printf "%s/%s/%s/%s/%s: Size mismatch: %d instead of %d" s c a pnm (takeFileName fnm) fsz psz
+                then putErr $ printf "Size mismatch: %d instead of %d" fsz psz
                 else do
                     fmd <- md5 fnm
                     if fmd /= pmd
-                        then hPutStrLn stderr $ printf "%s/%s/%s/%s/%s: Checksum mismatch: %s instead of %s" s c a pnm (takeFileName fnm) fmd pmd
+                        then putErr $ printf "Checksum mismatch: %s instead of %s" fmd pmd
                         else return ()
+  where
+    putErr :: String -> IO ()
+    putErr msg = hPutStrLn stderr $ printf "%s/%s/%s/%s/%s: %s" s c a pnm (takeFileName fnm) msg
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
