@@ -36,7 +36,7 @@ putSuite m s = do
             putArch m s c a
 
 putArch m s c a = do
-    let filename = m </> s </> c </> archIndex a
+    let filename = m </> "dists" </> s </> c </> archIndex a
     parseResult <- parseControl filename `liftM` readZipped filename
     either (putErr "Parse error") (putStr . showPackages s c a) parseResult
 
