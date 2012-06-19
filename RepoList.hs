@@ -31,27 +31,21 @@ arches     = ["amd64", "i386", "source"]
 
 main = do
     (mirror:suites) <- getArgs
-    forM_ suites $ putSuite mirror
+    mapM_ (putArch mirror) [(s, c, a) | s <- suites, c <- components, a <- arches]
 
-putSuite :: String -> String -> IO ()
-putSuite m s =
-    forM_ components $ \c ->
-        forM_ arches $ \a ->
-            putArch m s c a
-
-putArch :: String -> String -> String -> String -> IO ()
-putArch m s c a = do
+putArch :: String -> (String, String, String) -> IO ()
+putArch m (s, c, a) = do
     let filename = m </> "dists" </> s </> c </> archIndex a
     parseResult <- parseControl filename `liftM` readZipped filename
     case parseResult of
         Left err -> putErr "Parse error" err
         Right packages -> do
-            putStr $ showPackages s c a packages
+            putStr $ showPackages (s, c, a) packages
             hFlush stdout
-            checkPackages m s c a packages
+            checkPackages m (s, c, a) packages
 
-showPackages :: String -> String -> String -> Control -> String
-showPackages s c a control =
+showPackages :: (String, String, String) -> Control -> String
+showPackages (s, c, a) control =
     unlines . map showPackage . sortBy (comparing pkgName) . unControl $ control
   where showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
 
@@ -60,32 +54,32 @@ archIndex a = case a of
     "source" ->              a </> "Sources.gz"
     _        -> "binary-" ++ a </> "Packages.gz"
 
-checkPackages :: String -> String -> String -> String -> Control -> IO ()
-checkPackages m s c a control =
-    forM_ (unControl control) (checker m s c a)
+checkPackages :: String -> (String, String, String) -> Control -> IO ()
+checkPackages m (s, c, a) control =
+    forM_ (unControl control) (checker m (s, c, a))
   where checker = case a of
             "source" -> checkSourcePackage
             _        -> checkBinaryPackage
 
-checkBinaryPackage :: String -> String -> String -> String -> Package -> IO ()
-checkBinaryPackage m s c a p = do
+checkBinaryPackage :: String -> (String, String, String) -> Package -> IO ()
+checkBinaryPackage m (s, c, a) p = do
     let pnm = pkgField "Package"  p
         pfn = pkgField "Filename" p
         psz = pkgField "Size"     p
         pmd = pkgField "MD5sum"   p
-    checkPackageFile s c a pnm (m </> pfn) (read psz) pmd
+    checkPackageFile (s, c, a) pnm (m </> pfn) (read psz) pmd
 
-checkSourcePackage :: String -> String -> String -> String -> Package -> IO ()
-checkSourcePackage m s c a p = do
+checkSourcePackage :: String -> (String, String, String) -> Package -> IO ()
+checkSourcePackage m (s, c, a) p = do
     let pnm = pkgField "Package"   p
         pdr = pkgField "Directory" p
         pfs = pkgField "Files"     p
     forM_ (filter (not . null) . lines $ pfs) $ \l -> do
         let [_, pmd, psz, pfn] = split ' ' l
-        checkPackageFile s c a pnm (m </> pdr </> pfn) (read psz) pmd
+        checkPackageFile (s, c, a) pnm (m </> pdr </> pfn) (read psz) pmd
 
-checkPackageFile :: String -> String -> String -> String -> FilePath -> Integer -> String -> IO ()
-checkPackageFile s c a pnm fnm psz pmd = do
+checkPackageFile :: (String, String, String) -> String -> FilePath -> Integer -> String -> IO ()
+checkPackageFile (s, c, a) pnm fnm psz pmd = do
     exists <- doesFileExist fnm
     if not exists
         then putErr $ printf "File missing %s" fnm
