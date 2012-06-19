@@ -38,6 +38,7 @@ putSuite m s = do
         forM_ arches $ \a -> do
             putArch m s c a
 
+putArch :: String -> String -> String -> String -> IO ()
 putArch m s c a = do
     let filename = m </> "dists" </> s </> c </> archIndex a
     parseResult <- parseControl filename `liftM` readZipped filename
@@ -48,10 +49,12 @@ putArch m s c a = do
             hFlush stdout
             checkPackages m s c a packages
 
+showPackages :: String -> String -> String -> Control -> String
 showPackages s c a control =
     unlines . map showPackage . sortBy (compare `on` pkgName) . unControl $ control
   where showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
 
+archIndex :: String -> String
 archIndex a = case a of
     "source" ->              a </> "Sources.gz"
     _        -> "binary-" ++ a </> "Packages.gz"
