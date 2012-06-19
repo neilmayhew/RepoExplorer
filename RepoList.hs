@@ -4,12 +4,13 @@ import Debian.Control.ByteString
 import Debian.Relation
 import Text.ParserCombinators.Parsec.Error
 import Text.Printf
+import Data.Ord
 import Data.List
 import Data.Maybe
 import Data.Either.Utils
 import Data.Function
-import Control.Monad
 import Numeric
+import Control.Monad
 import System.IO
 import System.IO.HVFS
 import System.Environment
@@ -33,9 +34,9 @@ main = do
     forM_ suites $ putSuite mirror
 
 putSuite :: String -> String -> IO ()
-putSuite m s = do
-    forM_ components $ \c -> do
-        forM_ arches $ \a -> do
+putSuite m s =
+    forM_ components $ \c ->
+        forM_ arches $ \a ->
             putArch m s c a
 
 putArch :: String -> String -> String -> String -> IO ()
@@ -51,7 +52,7 @@ putArch m s c a = do
 
 showPackages :: String -> String -> String -> Control -> String
 showPackages s c a control =
-    unlines . map showPackage . sortBy (compare `on` pkgName) . unControl $ control
+    unlines . map showPackage . sortBy (comparing pkgName) . unControl $ control
   where showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
 
 archIndex :: String -> String
