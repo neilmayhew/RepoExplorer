@@ -102,22 +102,40 @@ checkPackageFile (s, c, a) pnm fnm psz pmd = do
 
 checkDups :: [(String, String, String, Index)] -> IO ()
 checkDups indexes =
-    let pkgInst (s, c, a) p = ((pkgName p, pkgVersion p, a), (s, c))
+    let pkgInst (s, c, a) p = ((pkgName p, pkgVersion p, a), (s, c, pkgHash p))
         ixInsts (s, c, a, ix) = map (pkgInst (s, c, a)) . unControl $ ix
-        allInsts = sortBy (comparing fst) . concatMap ixInsts $ indexes
-        dupInsts = filter ((>1) . length) . groupBy ((==) `on` fst) $ allInsts
-        problems = map (\grp -> (fst . head $ grp, map snd grp)) dupInsts
+        allInsts = combineAssocs . concatMap ixInsts
+        uniqueInsts = mapSnds (nubBy sameHash) . allInsts
+        dupInsts = filter ((>1) . length . snd) . uniqueInsts
+        sameHash = (==) `on` thd
+        thd (_, _, x) = x
     in
-        forM_ problems $ \((n, v, a), insts) -> do
+        forM_ (dupInsts indexes) $ \((n, v, a), insts) -> do
             putStrLn $ printf "%s %s %s" n v a
-            forM_ insts $ \(s, c) -> do
-                putStrLn $ printf "  %s %s" s c
+            forM_ insts $ \(s, c, h) -> do
+                putStrLn $ printf "%12s %-12s %s" s c h
+
+groupSortBy :: (Eq b, Ord b) => (a -> b) -> [a] -> [[a]]
+groupSortBy field = groupBy ((==) `on` field) . sortBy (comparing field)
+
+combineAssocs :: (Eq a, Ord a) => [(a, b)] -> [(a, [b])]
+combineAssocs = map combine . groupSortBy fst
+  where combine g = (fst . head $ g, map snd g)
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
 
 pkgVersion :: Package -> String
 pkgVersion = maybe "Unversioned" B.unpack . fieldValue "Version"
+
+pkgHash :: Package -> String
+pkgHash p = if isSrc p
+    then dsc !! 1
+    else pkgField "MD5sum" p
+  where
+    isSrc = isJust . fieldValue "Format"
+    infos = map (split ' ') . filter (not . null) . lines . pkgField "Files" $ p
+    dsc = fromJust . find ((== ".dsc") . takeExtension . (!! 3)) $ infos
 
 pkgField :: String -> Package -> String
 pkgField f p = case fieldValue f p of
@@ -150,3 +168,9 @@ split c s  = h : split c (drop 1 t)
 
 final :: Integral n => n -> [a] -> [a]
 final n xs = drop (length xs - fromIntegral n) xs
+
+mapFsts :: (a -> b) -> [(a, c)] -> [(b, c)]
+mapFsts f = map (\(x, y) -> (f x, y))
+
+mapSnds :: (a -> b) -> [(c, a)] -> [(c, b)]
+mapSnds f = map (\(x, y) -> (x, f y))
