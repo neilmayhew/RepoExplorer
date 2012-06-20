@@ -36,6 +36,7 @@ main = do
                   (getIndex mirror)
     forM_ indexes (putIndex mirror)
     forM_ indexes (checkIndex mirror)
+    checkDups indexes
 
 getIndex :: String -> (String, String, String) -> IO (String, String, String, Index)
 getIndex m (s, c, a) = do
@@ -98,6 +99,19 @@ checkPackageFile (s, c, a) pnm fnm psz pmd = do
   where
     putErr :: String -> IO ()
     putErr msg = hPutStrLn stderr $ printf "%s/%s/%s/%s/%s: %s" s c a pnm (takeFileName fnm) msg
+
+checkDups :: [(String, String, String, Index)] -> IO ()
+checkDups indexes =
+    let pkgInst (s, c, a) p = ((pkgName p, pkgVersion p, a), (s, c))
+        ixInsts (s, c, a, ix) = map (pkgInst (s, c, a)) . unControl $ ix
+        allInsts = sortBy (comparing fst) . concatMap ixInsts $ indexes
+        dupInsts = filter ((>1) . length) . groupBy ((==) `on` fst) $ allInsts
+        problems = map (\grp -> (fst . head $ grp, map snd grp)) dupInsts
+    in
+        forM_ problems $ \((n, v, a), insts) -> do
+            putStrLn $ printf "%s %s %s" n v a
+            forM_ insts $ \(s, c) -> do
+                putStrLn $ printf "  %s %s" s c
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
