@@ -7,7 +7,7 @@ import Text.Printf
 import Data.Ord
 import Data.List
 import Data.Maybe
-import Data.Either.Utils
+import Data.Either
 import Data.Function
 import Numeric
 import Control.Monad
@@ -25,41 +25,44 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
 
 type Package = Paragraph
+type Index = Control
 
 components = ["main"]
 arches     = ["amd64", "i386", "source"]
 
 main = do
     (mirror:suites) <- getArgs
-    mapM_ (putArch mirror) [(s, c, a) | s <- suites, c <- components, a <- arches]
+    indexes <- forM [(s, c, a) | s <- suites, c <- components, a <- arches]
+                  (getIndex mirror)
+    forM_ indexes (putIndex mirror)
+    forM_ indexes (checkIndex mirror)
 
-putArch :: String -> (String, String, String) -> IO ()
-putArch m (s, c, a) = do
+getIndex :: String -> (String, String, String) -> IO (String, String, String, Index)
+getIndex m (s, c, a) = do
     let filename = m </> "dists" </> s </> c </> archIndex a
-    parseResult <- parseControl filename `liftM` readZipped filename
-    case parseResult of
-        Left err -> putErr "Parse error" err
-        Right packages -> do
-            putStr $ showPackages (s, c, a) packages
-            hFlush stdout
-            checkPackages m (s, c, a) packages
+        onError err = do putErr "Parse error" err
+                         return $ Control []
+    result <- parseControl filename `liftM` readZipped filename
+    index <- either onError return result
+    return (s, c, a, index)
+  where
+    archIndex a = case a of
+        "source" ->              a </> "Sources.gz"
+        _        -> "binary-" ++ a </> "Packages.gz"
 
-showPackages :: (String, String, String) -> Control -> String
-showPackages (s, c, a) control =
-    unlines . map showPackage . sortBy (comparing pkgName) . unControl $ control
-  where showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
+putIndex :: String -> (String, String, String, Index) -> IO ()
+putIndex _ (s, c, a, ix) =
+    putStr $ unlines . map showPackage . sortBy (comparing pkgName) . unControl $ ix
+  where
+    showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
 
-archIndex :: String -> String
-archIndex a = case a of
-    "source" ->              a </> "Sources.gz"
-    _        -> "binary-" ++ a </> "Packages.gz"
-
-checkPackages :: String -> (String, String, String) -> Control -> IO ()
-checkPackages m (s, c, a) control =
+checkIndex :: String -> (String, String, String, Index) -> IO ()
+checkIndex m (s, c, a, control) =
     forM_ (unControl control) (checker m (s, c, a))
-  where checker = case a of
-            "source" -> checkSourcePackage
-            _        -> checkBinaryPackage
+  where
+    checker = case a of
+        "source" -> checkSourcePackage
+        _        -> checkBinaryPackage
 
 checkBinaryPackage :: String -> (String, String, String) -> Package -> IO ()
 checkBinaryPackage m (s, c, a) p = do
