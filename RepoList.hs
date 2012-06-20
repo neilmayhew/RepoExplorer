@@ -111,9 +111,9 @@ checkDups indexes =
         thd (_, _, x) = x
     in
         forM_ (dupInsts indexes) $ \((n, v, a), insts) -> do
-            putStrLn $ printf "%s %s %s" n v a
+            hPutStrLn stderr $ printf "%s %s %s" n v a
             forM_ insts $ \(s, c, h) -> do
-                putStrLn $ printf "%12s %-12s %s" s c h
+                hPutStrLn stderr $ printf "%12s %-12s %s" s c h
 
 groupSortBy :: (Eq b, Ord b) => (a -> b) -> [a] -> [[a]]
 groupSortBy field = groupBy ((==) `on` field) . sortBy (comparing field)
