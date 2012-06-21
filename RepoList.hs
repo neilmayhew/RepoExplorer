@@ -2,6 +2,7 @@ module Main where
 
 import Debian.Control.ByteString
 import Debian.Relation
+import Debian.Version
 import Text.ParserCombinators.Parsec.Error
 import Text.Printf
 import Data.Ord
@@ -23,6 +24,9 @@ import qualified Codec.Compression.GZip as GZip
 import qualified Crypto.Hash.MD5 as MD5
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
+
+instance Show DebianVersion where
+    show = show . prettyDebianVersion
 
 type Package = Paragraph
 type Index = Control
@@ -53,9 +57,9 @@ getIndex m (s, c, a) = do
 
 putIndex :: String -> (String, String, String, Index) -> IO ()
 putIndex _ (s, c, a, ix) =
-    putStr $ unlines . map showPackage . sortBy (comparing pkgName) . unControl $ ix
+    putStr $ unlines . map showPackage . sortBy pkgCompare . unControl $ ix
   where
-    showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (pkgVersion p)
+    showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (show $ pkgVersion p)
 
 checkIndex :: String -> (String, String, String, Index) -> IO ()
 checkIndex m (s, c, a, control) =
@@ -111,7 +115,7 @@ checkDups indexes =
         thd (_, _, x) = x
     in
         forM_ (dupInsts indexes) $ \((n, v, a), insts) -> do
-            hPutStrLn stderr $ printf "%s %s %s" n v a
+            hPutStrLn stderr $ printf "%s %s %s" n (show v) a
             forM_ insts $ \(s, c, h) -> do
                 hPutStrLn stderr $ printf "%12s %-12s %s" s c h
 
@@ -122,11 +126,22 @@ combineAssocs :: (Eq a, Ord a) => [(a, b)] -> [(a, [b])]
 combineAssocs = map combine . groupSortBy fst
   where combine g = (fst . head $ g, map snd g)
 
+pkgCompare :: Package -> Package -> Ordering
+pkgCompare p1 p2 =
+    (compare `on` pkgName) p1 p2
+        ||| (compare `on` pkgVersion) p1 p2
+        ||| (compare `on` pkgArch) p1 p2
+  where
+    (|||) a b = if a /= EQ then a else b
+
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
 
-pkgVersion :: Package -> String
-pkgVersion = maybe "Unversioned" B.unpack . fieldValue "Version"
+pkgVersion :: Package -> DebianVersion
+pkgVersion = parseDebianVersion . maybe "Unversioned" B.unpack . fieldValue "Version"
+
+pkgArch :: Package -> String
+pkgArch = maybe "None" B.unpack . fieldValue "Architecture"
 
 pkgHash :: Package -> String
 pkgHash p = if isSrc p
