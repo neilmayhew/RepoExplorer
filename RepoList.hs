@@ -152,6 +152,15 @@ pkgHash p = if isSrc p
     infos = map (split ' ') . filter (not . null) . lines . pkgField "Files" $ p
     dsc = fromJust . find ((== ".dsc") . takeExtension . (!! 3)) $ infos
 
+pkgFile :: Package -> String
+pkgFile p = if isSrc p
+    then dsc !! 3
+    else pkgField "Filename" p
+  where
+    isSrc = isJust . fieldValue "Format"
+    infos = map (split ' ') . filter (not . null) . lines . pkgField "Files" $ p
+    dsc = fromJust . find ((== ".dsc") . takeExtension . (!! 3)) $ infos
+
 pkgField :: String -> Package -> String
 pkgField f p = case fieldValue f p of
     Nothing -> error $ "No field " ++ f ++ " in package " ++ pkgName p
