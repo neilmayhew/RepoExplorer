@@ -1,8 +1,11 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Main where
 
 import Debian.Control.ByteString
 import Debian.Relation
 import Debian.Version
+import System.Console.CmdArgs.Implicit
 import Text.ParserCombinators.Parsec.Error
 import Text.Printf
 import Data.Ord
@@ -25,22 +28,39 @@ import qualified Crypto.Hash.MD5 as MD5
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
 
-instance Show DebianVersion where
-    show = show . prettyDebianVersion
-
 type Package = Paragraph
 type Index = Control
 
 components = ["main"]
 arches     = ["amd64", "i386", "source"]
 
+data Options = Options
+    { optCheckSums :: Bool
+    , optCheckDups :: Bool
+    , argMirror :: String
+    , argSuites :: [String] }
+    deriving (Show, Data, Typeable)
+
+options = Options
+    { optCheckSums = False &= name "check-sums" &= explicit &= help "Check package sums" &= groupname "Options"
+    , optCheckDups = False &= name "check-dups" &= explicit &= help "Check package duplicates"
+    , argMirror = "" &= argPos 0 &= typ "MIRROR"
+    , argSuites = [] &= args     &= typ "SUITE" }
+        &= program "RepoList"
+        &= summary "List and optionally check repository contents"
+        &= versionArg [summary "RepoList v0.5"]
+
 main = do
-    (mirror:suites) <- getArgs
+    args <- cmdArgs options
+    let mirror = argMirror args
+        suites = argSuites args
+        doCheckSums = optCheckSums args
+        doCheckDups = optCheckDups args
     indexes <- forM [(s, c, a) | s <- suites, c <- components, a <- arches]
                   (getIndex mirror)
     forM_ indexes (putIndex mirror)
-    forM_ indexes (checkIndex mirror)
-    checkDups indexes
+    when doCheckSums $ forM_ indexes (checkIndex mirror)
+    when doCheckDups $ checkDups indexes
 
 getIndex :: String -> (String, String, String) -> IO (String, String, String, Index)
 getIndex m (s, c, a) = do
