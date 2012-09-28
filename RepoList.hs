@@ -28,6 +28,8 @@ import qualified Crypto.Hash.MD5 as MD5
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
 
+import Network.Curl.Download.Lazy
+
 type Package = Paragraph
 type Index = Control
 
@@ -64,10 +66,10 @@ main = do
 
 getIndex :: String -> (String, String, String) -> IO (String, String, String, Index)
 getIndex m (s, c, a) = do
-    let filename = m </> "dists" </> s </> c </> archIndex a
+    let location = m </> "dists" </> s </> c </> archIndex a
         onError err = do putErr "Parse error" err
                          return $ Control []
-    result <- parseControl filename `liftM` readZipped filename
+    result <- parseControl location `liftM` readZipped location
     index <- either onError return result
     return (s, c, a, index)
   where
@@ -187,11 +189,12 @@ pkgField f p = case fieldValue f p of
     Just v -> B.unpack v
 
 readZipped :: String -> IO B.ByteString
-readZipped filename = decompress `fmap` LB.readFile filename
-  where decompress' = case takeExtension filename of
-            ".gz" -> GZip.decompress
-            _     -> id
-        decompress = B.concat . LB.toChunks . decompress'
+readZipped location = decompress `liftM` readLazyURI location
+  where decompress = B.concat . LB.toChunks . GZip.decompress
+
+readLazyURI :: String -> IO LB.ByteString
+readLazyURI url = either err return =<< openLazyURI url
+  where err msg = error $ msg ++ " (" ++ url ++ ")"
 
 putErr :: String -> ParseError -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
