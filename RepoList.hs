@@ -65,6 +65,7 @@ main = do
         doCheckSums = optCheckSums args
         doCheckDups = optCheckDups args
         withDefault l d = if null l then d else l
+    when (null suites) $ error "Must specify suites"
     indexes <- forM [(s, c, a) | s <- suites, c <- components, a <- arches]
                   (getIndex mirror)
     forM_ indexes (putIndex mirror)
