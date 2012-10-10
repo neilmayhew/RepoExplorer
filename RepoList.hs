@@ -33,14 +33,14 @@ import Network.Curl.Download.Lazy
 type Package = Paragraph
 type Index = Control
 
-defComponents = ["main"]
-defArches     = ["amd64", "i386", "source"]
+defComponents = "main"
+defArches     = "amd64 i386 source"
 
 data Options = Options
     { optCheckSums :: Bool
     , optCheckDups :: Bool
-    , optComponents :: [String]
-    , optArches     :: [String]
+    , optComponents :: String
+    , optArches     :: String
     , argMirror :: String
     , argSuites :: [String] }
     deriving (Show, Data, Typeable)
@@ -48,8 +48,8 @@ data Options = Options
 options = Options
     { optCheckSums = False &= name "check-sums" &= name "s" &= explicit &= help "Check package sums" &= groupname "Options"
     , optCheckDups = False &= name "check-dups" &= name "d" &= explicit &= help "Check package duplicates"
-    , optComponents = [] &= typ "NAMES" &= name "components" &= name "c" &= explicit &= help "Components to list"
-    , optArches     = [] &= typ "NAMES" &= name "arches"     &= name "a" &= explicit &= help "Architectures to list"
+    , optComponents = defComponents &= typ "NAMES" &= name "components" &= name "c" &= explicit &= help "Components to list"
+    , optArches     = defArches     &= typ "NAMES" &= name "arches"     &= name "a" &= explicit &= help "Architectures to list"
     , argMirror = "" &= argPos 0 &= typ "MIRROR"
     , argSuites = [] &= args     &= typ "SUITE" }
         &= program "RepoList"
@@ -60,11 +60,10 @@ main = do
     args <- cmdArgs options
     let mirror = argMirror args
         suites = argSuites args
-        components = concatMap words $ optComponents args `withDefault` defComponents
-        arches     = concatMap words $ optArches     args `withDefault` defArches
+        components = words $ optComponents args
+        arches     = words $ optArches     args
         doCheckSums = optCheckSums args
         doCheckDups = optCheckDups args
-        withDefault l d = if null l then d else l
     when (null suites) $ error "Must specify suites"
     indexes <- forM [(s, c, a) | s <- suites, c <- components, a <- arches]
                   (getIndex mirror)
