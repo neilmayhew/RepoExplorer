@@ -55,6 +55,10 @@ options = Options
         &= program "RepoList"
         &= summary "List and optionally check repository contents"
         &= versionArg [summary "RepoList v0.5"]
+        &= details
+            [ "Defaults:"
+            , "  Components     " ++ defComponents
+            , "  Architectures  " ++ defArches ]
 
 main = do
     args <- cmdArgs options
