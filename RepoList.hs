@@ -46,12 +46,12 @@ data Options = Options
     deriving (Show, Data, Typeable)
 
 options = Options
-    { optCheckSums = False &= name "check-sums" &= name "s" &= explicit &= help "Check package sums" &= groupname "Options"
-    , optCheckDups = False &= name "check-dups" &= name "d" &= explicit &= help "Check package duplicates"
-    , optComponents = defComponents &= typ "NAMES" &= name "components" &= name "c" &= explicit &= help "Components to list"
-    , optArches     = defArches     &= typ "NAMES" &= name "arches"     &= name "a" &= explicit &= help "Architectures to list"
-    , argMirror = "" &= argPos 0 &= typ "MIRROR"
-    , argSuites = [] &= args     &= typ "SUITE" }
+    { optCheckSums  = False         &= name "check-sums" &= name "s"                &= explicit &= help "Check package sums" &= groupname "Options"
+    , optCheckDups  = False         &= name "check-dups" &= name "d"                &= explicit &= help "Check package duplicates"
+    , optComponents = defComponents &= name "components" &= name "c" &= typ "NAMES" &= explicit &= help "Components to list"
+    , optArches     = defArches     &= name "arches"     &= name "a" &= typ "NAMES" &= explicit &= help "Architectures to list"
+    , argMirror     = ""            &= argPos 0                      &= typ "MIRROR"
+    , argSuites     = []            &= args                          &= typ "SUITE" }
         &= program "RepoList"
         &= summary "List and optionally check repository contents"
         &= versionArg [summary "RepoList v0.5"]
