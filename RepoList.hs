@@ -30,8 +30,14 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 
 import Network.Curl.Download.Lazy
 
-type Package = Paragraph
-type Index = Control
+type Package     = Paragraph
+type PackageList = Control
+
+data Index = Index
+    { ixSuite :: String
+    , ixComp  :: String
+    , ixArch  :: String
+    , ixList  :: PackageList }
 
 defComponents = "main"
 defArches     = "amd64 i386 source"
@@ -75,28 +81,28 @@ main = do
     when doCheckSums $ forM_ indexes (checkIndex mirror)
     when doCheckDups $ checkDups indexes
 
-getIndex :: String -> (String, String, String) -> IO (String, String, String, Index)
+getIndex :: String -> (String, String, String) -> IO Index
 getIndex m (s, c, a) = do
     let location = m </> "dists" </> s </> c </> archIndex a
         onError err = do putErr "Parse error" err
                          return $ Control []
     result <- parseControl location `liftM` readZipped location
-    index <- either onError return result
-    return (s, c, a, index)
+    list <- either onError return result
+    return $ Index s c a list
   where
     archIndex a = case a of
         "source" ->              a </> "Sources.gz"
         _        -> "binary-" ++ a </> "Packages.gz"
 
-putIndex :: String -> (String, String, String, Index) -> IO ()
-putIndex _ (s, c, a, ix) =
-    putStr $ unlines . map showPackage . sortBy pkgCompare . unControl $ ix
+putIndex :: String -> Index -> IO ()
+putIndex _ (Index s c a l) =
+    putStr $ unlines . map showPackage . sortBy pkgCompare . unControl $ l
   where
     showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (show $ pkgVersion p)
 
-checkIndex :: String -> (String, String, String, Index) -> IO ()
-checkIndex m (s, c, a, control) =
-    forM_ (unControl control) (checker m (s, c, a))
+checkIndex :: String -> Index -> IO ()
+checkIndex m (Index s c a l) =
+    forM_ (unControl l) (checker m (s, c, a))
   where
     checker = case a of
         "source" -> checkSourcePackage
@@ -137,10 +143,10 @@ checkPackageFile (s, c, a) pnm fnm psz pmd = do
     putErr :: String -> IO ()
     putErr msg = hPutStrLn stderr $ printf "%s/%s/%s/%s/%s: %s" s c a pnm (takeFileName fnm) msg
 
-checkDups :: [(String, String, String, Index)] -> IO ()
+checkDups :: [Index] -> IO ()
 checkDups indexes =
     let pkgInst (s, c, a) p = ((pkgName p, pkgVersion p, a), (s, c, pkgHash p))
-        ixInsts (s, c, a, ix) = map (pkgInst (s, c, a)) . unControl $ ix
+        ixInsts (Index s c a l) = map (pkgInst (s, c, a)) . unControl $ l
         allInsts = combineAssocs . concatMap ixInsts
         uniqueInsts = mapSnds (nubBy sameHash) . allInsts
         dupInsts = filter ((>1) . length . snd) . uniqueInsts
