@@ -12,6 +12,7 @@ import Data.Ord
 import Data.List
 import Data.Maybe
 import Data.Either
+import Data.Either.Utils
 import Data.Function
 import Numeric
 import Control.Monad
@@ -28,6 +29,7 @@ import qualified Crypto.Hash.MD5 as MD5
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
 
+import Network.Curl.Download
 import Network.Curl.Download.Lazy
 
 type Package     = Paragraph
@@ -43,21 +45,23 @@ defComponents = "main"
 defArches     = "amd64 i386 source"
 
 data Options = Options
-    { optCheckSums :: Bool
-    , optCheckDups :: Bool
+    { optCheckSums  :: Bool
+    , optCheckDups  :: Bool
+    , optUseRelease :: Bool
     , optComponents :: String
     , optArches     :: String
-    , argMirror :: String
-    , argSuites :: [String] }
+    , argMirror     :: String
+    , argSuites     :: [String] }
     deriving (Show, Data, Typeable)
 
 options = Options
-    { optCheckSums  = False         &= name "check-sums" &= name "s"                &= explicit &= help "Check package sums" &= groupname "Options"
-    , optCheckDups  = False         &= name "check-dups" &= name "d"                &= explicit &= help "Check package duplicates"
-    , optComponents = defComponents &= name "components" &= name "c" &= typ "NAMES" &= explicit &= help "Components to list"
-    , optArches     = defArches     &= name "arches"     &= name "a" &= typ "NAMES" &= explicit &= help "Architectures to list"
-    , argMirror     = ""            &= argPos 0                      &= typ "MIRROR"
-    , argSuites     = []            &= args                          &= typ "SUITE" }
+    { optCheckSums  = False         &= name "check-sums"  &= name "s"                &= explicit &= help "Check package sums" &= groupname "Options"
+    , optCheckDups  = False         &= name "check-dups"  &= name "d"                &= explicit &= help "Check package duplicates"
+    , optUseRelease = False         &= name "use-release" &= name "r"                &= explicit &= help "Use Release file to determine Components and Architectures"
+    , optComponents = defComponents &= name "components"  &= name "c" &= typ "NAMES" &= explicit &= help "Components to list"
+    , optArches     = defArches     &= name "arches"      &= name "a" &= typ "NAMES" &= explicit &= help "Architectures to list"
+    , argMirror     = ""            &= argPos 0                       &= typ "MIRROR"
+    , argSuites     = []            &= args                           &= typ "SUITE" }
         &= program "RepoList"
         &= summary "List and optionally check repository contents"
         &= versionArg [summary "RepoList v0.5"]
@@ -68,18 +72,39 @@ options = Options
 
 main = do
     args <- cmdArgs options
+
     let mirror = argMirror args
         suites = argSuites args
-        components = words $ optComponents args
-        arches     = words $ optArches     args
-        doCheckSums = optCheckSums args
-        doCheckDups = optCheckDups args
+
     when (null suites) $ error "Must specify suites"
-    indexes <- forM [(s, c, a) | s <- suites, c <- components, a <- arches]
-                  (getIndex mirror)
+
+    indexes <- getRepo args mirror suites
+
     forM_ indexes (putIndex mirror)
-    when doCheckSums $ forM_ indexes (checkIndex mirror)
-    when doCheckDups $ checkDups indexes
+
+    when (optCheckSums args) $ forM_ indexes (checkIndex mirror)
+    when (optCheckDups args) $ checkDups indexes
+
+getRepo :: Options -> String -> [String] -> IO [Index]
+getRepo opts mirror suites =
+    concat `liftM` mapM (getSuite opts mirror) (sort suites)
+
+getSuite :: Options -> String -> String -> IO [Index]
+getSuite opts mirror suite = do
+    (components, arches) <- if optUseRelease opts
+        then getReleaseParts mirror suite
+        else return (words $ optComponents opts, words $ optArches opts)
+    forM [(suite, c, a) | c <- sort components, a <- sort arches] $ getIndex mirror
+  where
+    getReleaseParts m s = do
+        let location = m </> "dists" </> s </> "Release"
+        releaseData <- readURI location
+        let release = head . unControl . fromRight . parseControl location $ releaseData
+            components = words $ fieldValue' "Components"    release
+            arches     = words $ fieldValue' "Architectures" release
+        return (components, arches ++ ["source"])
+      where
+        fieldValue' name = maybe "" B.unpack . fieldValue name
 
 getIndex :: String -> (String, String, String) -> IO Index
 getIndex m (s, c, a) = do
@@ -211,6 +236,10 @@ readZipped location = decompress `liftM` readLazyURI location
 
 readLazyURI :: String -> IO LB.ByteString
 readLazyURI url = either err return =<< openLazyURI url
+  where err msg = error $ msg ++ " (" ++ url ++ ")"
+
+readURI :: String -> IO B.ByteString
+readURI url = either err return =<< openURI url
   where err msg = error $ msg ++ " (" ++ url ++ ")"
 
 putErr :: String -> ParseError -> IO ()
