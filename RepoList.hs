@@ -41,13 +41,9 @@ data Index = Index
     , ixArch  :: String
     , ixList  :: PackageList }
 
-defComponents = "main"
-defArches     = "amd64 i386 source"
-
 data Options = Options
     { optCheckSums  :: Bool
     , optCheckDups  :: Bool
-    , optUseRelease :: Bool
     , optComponents :: String
     , optArches     :: String
     , argMirror     :: String
@@ -55,45 +51,44 @@ data Options = Options
     deriving (Show, Data, Typeable)
 
 options = Options
-    { optCheckSums  = False         &= name "check-sums"  &= name "s"                &= explicit &= help "Check package sums" &= groupname "Options"
-    , optCheckDups  = False         &= name "check-dups"  &= name "d"                &= explicit &= help "Check package duplicates"
-    , optUseRelease = False         &= name "use-release" &= name "r"                &= explicit &= help "Use Release file to determine Components and Architectures"
-    , optComponents = defComponents &= name "components"  &= name "c" &= typ "NAMES" &= explicit &= help "Components to list"
-    , optArches     = defArches     &= name "arches"      &= name "a" &= typ "NAMES" &= explicit &= help "Architectures to list"
-    , argMirror     = ""            &= argPos 0                       &= typ "MIRROR"
-    , argSuites     = []            &= args                           &= typ "SUITE" }
+    { optCheckSums  = False &= name "check-sums"  &= name "s"                &= explicit &= help "Check package sums" &= groupname "Options"
+    , optCheckDups  = False &= name "check-dups"  &= name "d"                &= explicit &= help "Check package duplicates"
+    , optComponents = ""    &= name "components"  &= name "c" &= typ "NAMES" &= explicit &= help "Components to list"
+    , optArches     = ""    &= name "arches"      &= name "a" &= typ "NAMES" &= explicit &= help "Architectures to list"
+    , argMirror     = ""    &= argPos 0                       &= typ "MIRROR"
+    , argSuites     = []    &= args                           &= typ "SUITE" }
         &= program "RepoList"
         &= summary "List and optionally check repository contents"
         &= versionArg [summary "RepoList v0.5"]
-        &= details
-            [ "Defaults:"
-            , "  Components     " ++ defComponents
-            , "  Architectures  " ++ defArches ]
 
 main = do
     args <- cmdArgs options
 
-    let mirror = argMirror args
-        suites = argSuites args
+    let mirror     = argMirror args
+        suites     = argSuites args
+        components = words $ optComponents args
+        arches     = words $ optArches     args
 
     when (null suites) $ error "Must specify suites"
 
-    indexes <- getRepo args mirror suites
+    indexes <- getRepo mirror suites components arches
 
     forM_ indexes (putIndex mirror)
 
     when (optCheckSums args) $ forM_ indexes (checkIndex mirror)
     when (optCheckDups args) $ checkDups indexes
 
-getRepo :: Options -> String -> [String] -> IO [Index]
-getRepo opts mirror suites =
-    concat `liftM` mapM (getSuite opts mirror) (sort suites)
+getRepo :: String -> [String] -> [String] -> [String] -> IO [Index]
+getRepo mirror suites components arches =
+    concat `liftM` forM (sort suites) (\s -> getSuite mirror s components arches)
 
-getSuite :: Options -> String -> String -> IO [Index]
-getSuite opts mirror suite = do
-    (components, arches) <- if optUseRelease opts
+getSuite :: String -> String -> [String] -> [String] -> IO [Index]
+getSuite mirror suite uComponents uArches = do
+    (rComponents, rArches) <- if null uComponents || null uArches
         then getReleaseParts mirror suite
-        else return (words $ optComponents opts, words $ optArches opts)
+        else return ([], [])
+    let components = if null uComponents then rComponents else uComponents
+        arches     = if null uArches     then rArches     else uArches
     forM [(suite, c, a) | c <- sort components, a <- sort arches] $ getIndex mirror
   where
     getReleaseParts m s = do
