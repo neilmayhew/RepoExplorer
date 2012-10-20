@@ -42,24 +42,27 @@ data Index = Index
     , ixList  :: PackageList }
 
 data Options = Options
-    { optCheckSums  :: Bool
-    , optCheckDups  :: Bool
+    { argMirror     :: String
+    , argSuites     :: [String]
     , optComponents :: String
     , optArches     :: String
-    , argMirror     :: String
-    , argSuites     :: [String] }
-    deriving (Show, Data, Typeable)
+    , optCheckSums  :: Bool
+    , optCheckDups  :: Bool
+    } deriving (Show, Data, Typeable)
 
 options = Options
-    { optCheckSums  = False &= name "check-sums"  &= name "s"                &= explicit &= help "Check package sums" &= groupname "Options"
+    { argMirror     = ""    &= argPos 0                       &= typ "MIRROR"
+    , argSuites     = []    &= args                           &= typ "SUITES"
+    , optComponents = ""    &= name "components"  &= name "c" &= typ "NAMES" &= explicit &= help "Components to include" &= groupname "Options"
+    , optArches     = ""    &= name "arches"      &= name "a" &= typ "NAMES" &= explicit &= help "Architectures to include"
+    , optCheckSums  = False &= name "check-sums"  &= name "s"                &= explicit &= help "Check package sums"
     , optCheckDups  = False &= name "check-dups"  &= name "d"                &= explicit &= help "Check package duplicates"
-    , optComponents = ""    &= name "components"  &= name "c" &= typ "NAMES" &= explicit &= help "Components to list"
-    , optArches     = ""    &= name "arches"      &= name "a" &= typ "NAMES" &= explicit &= help "Architectures to list"
-    , argMirror     = ""    &= argPos 0                       &= typ "MIRROR"
-    , argSuites     = []    &= args                           &= typ "SUITE" }
-        &= program "RepoList"
+    }   &= program "RepoList"
         &= summary "List and optionally check repository contents"
         &= versionArg [summary "RepoList v0.5"]
+        &= details
+            [ "If components and architectures aren't specified, they are taken from the"
+            , "Release file for the suite" ]
 
 main = do
     args <- cmdArgs options
