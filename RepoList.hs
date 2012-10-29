@@ -61,8 +61,12 @@ options = Options
         &= summary "List and optionally check repository contents"
         &= versionArg [summary "RepoList v0.5"]
         &= details
-            [ "If components and architectures aren't specified, they are taken from the"
-            , "Release file for the suite" ]
+        [ "If components and architectures aren't specified, they are taken from the"
+        , "Release file for the suite"
+        , ""
+        , "Examples:"
+        , "    RepoList http://ppa.launchpad.net/gnome3-team/gnome3/ubuntu precise quantal"
+        , "    RepoList -c 'main non-free' -a mips http://www.deb-multimedia.org wheezy" ]
 
 main = do
     args <- cmdArgs options
