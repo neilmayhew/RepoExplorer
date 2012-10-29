@@ -8,6 +8,7 @@ import Text.ParserCombinators.Parsec.Error
 
 import Data.Graph.Inductive
 import Data.Tree
+import Data.Set (fromList, member)
 import Data.List
 import Data.Maybe
 import Data.Either
@@ -78,9 +79,9 @@ makeGraph deps = fst $ mkMapGraph nodes edges
 packageDeps :: Control -> [[String]]
 packageDeps c = map mkDeps pkgs
   where pkgs = filter pkgIsInstalled . unControl $ c
-        names = map pkgName pkgs
+        names = fromList . map pkgName $ pkgs
         mkDeps p = pkgName p : filter installed (pkgDeps p)
-        installed name = name `elem` names
+        installed name = name `member` names
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
