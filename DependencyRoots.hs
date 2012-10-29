@@ -43,8 +43,8 @@ options = Options
 main = do
     args <- cmdArgs options
     (parseControlFromFile $ statusFile args)
-        >>= either (putErr "Parse error") (putControl $ style args)
-  where putControl style = case style of
+        >>= either (putErr "Parse error") (putDeps (style args) . packageDeps)
+  where putDeps style = case style of
             Roots  -> putRoots graphRoots  showAlts
             Forest -> putRoots graphForest showTree
         showTree = drawTree
@@ -53,8 +53,8 @@ main = do
 putErr :: String -> ParseError -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
-putRoots :: (Gr String () -> Forest String) -> (Tree String -> String) -> Control -> IO ()
-putRoots fRoots fShow = mapM_ putStrLn . map fShow . sortForest . fRoots . fst . packageGraph
+putRoots :: (Gr String () -> Forest String) -> (Tree String -> String) -> [[String]] -> IO ()
+putRoots fRoots fShow = mapM_ putStrLn . map fShow . sortForest . fRoots . makeGraph
   where sortForest = sortBy (comparing rootLabel)
 
 graphRoots :: Gr a b -> Forest a
@@ -69,14 +69,18 @@ graphForest g = map labelTree forest
   where forest = dff (topsort g) g
         labelTree = fmap (fromJust . lab g)
 
-packageGraph :: Control -> (Gr String (), NodeMap String)
-packageGraph c = mkMapGraph nodes edges
+makeGraph :: [[String]] -> Gr String ()
+makeGraph deps = fst $ mkMapGraph nodes edges
+  where nodes = map head deps
+        edges = concatMap mkEdges deps
+        mkEdges (n : sucs) = map (\s -> (n, s, ())) sucs
+
+packageDeps :: Control -> [[String]]
+packageDeps c = map mkDeps pkgs
   where pkgs = filter pkgIsInstalled . unControl $ c
-        nodes = map pkgName pkgs
-        edges = concatMap mkEdges pkgs
-        mkEdges p = map (mkEdge p) . filter installed . pkgDeps $ p
-        mkEdge p d = (pkgName p, d, ())
-        installed name = name `elem` nodes
+        names = map pkgName pkgs
+        mkDeps p = pkgName p : filter installed (pkgDeps p)
+        installed name = name `elem` names
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
