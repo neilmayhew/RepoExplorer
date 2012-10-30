@@ -4,7 +4,6 @@ module Main where
 
 import Debian.Control.ByteString
 import Debian.Relation
-import Text.ParserCombinators.Parsec.Error
 
 import Data.Graph.Inductive
 import Data.Tree
@@ -51,7 +50,7 @@ main = do
         showTree = drawTree
         showAlts = intercalate "|" . flatten
 
-putErr :: String -> ParseError -> IO ()
+putErr :: Show e => String -> e -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
 putRoots :: (Gr String () -> Forest String) -> (Tree String -> String) -> [[String]] -> IO ()
