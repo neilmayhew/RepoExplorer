@@ -32,6 +32,9 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 import Network.Curl.Download
 import Network.Curl.Download.Lazy
 
+instance Show DebianVersion where
+    show = show . prettyDebianVersion
+
 type Package     = Paragraph
 type PackageList = Control
 
