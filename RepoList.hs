@@ -16,12 +16,12 @@ import Data.Either.Utils
 import Data.Function
 import Numeric
 import Control.Monad
+import Control.Arrow
 import System.IO
 import System.IO.HVFS
 import System.Environment
 import System.FilePath
 import System.Directory
-import System.Path
 import System.Posix.Files
 
 import qualified Codec.Compression.GZip as GZip
@@ -166,9 +166,8 @@ checkPackageFile (s, c, a) pnm fnm psz pmd = do
                 then putErr $ printf "Size mismatch: %d instead of %d" fsz psz
                 else do
                     fmd <- md5 fnm
-                    if fmd /= pmd
-                        then putErr $ printf "Checksum mismatch: %s instead of %s" fmd pmd
-                        else return ()
+                    when (fmd /= pmd) $
+                        putErr $ printf "Checksum mismatch: %s instead of %s" fmd pmd
   where
     putErr :: String -> IO ()
     putErr msg = hPutStrLn stderr $ printf "%s/%s/%s/%s/%s: %s" s c a pnm (takeFileName fnm) msg
@@ -178,14 +177,14 @@ checkDups indexes =
     let pkgInst (s, c, a) p = ((pkgName p, pkgVersion p, a), (s, c, pkgHash p))
         ixInsts (Index s c a l) = map (pkgInst (s, c, a)) . unControl $ l
         allInsts = combineAssocs . concatMap ixInsts
-        uniqueInsts = mapSnds (nubBy sameHash) . allInsts
+        uniqueInsts = (map . second) (nubBy sameHash) . allInsts
         dupInsts = filter ((>1) . length . snd) . uniqueInsts
         sameHash = (==) `on` thd
         thd (_, _, x) = x
     in
         forM_ (dupInsts indexes) $ \((n, v, a), insts) -> do
             hPutStrLn stderr $ printf "%s %s %s" n (show v) a
-            forM_ insts $ \(s, c, h) -> do
+            forM_ insts $ \(s, c, h) ->
                 hPutStrLn stderr $ printf "%12s %-12s %s" s c h
 
 groupSortBy :: (Eq b, Ord b) => (a -> b) -> [a] -> [[a]]
@@ -213,22 +212,23 @@ pkgArch :: Package -> String
 pkgArch = maybe "None" B.unpack . fieldValue "Architecture"
 
 pkgHash :: Package -> String
-pkgHash p = if isSrc p
+pkgHash p = if pkgIsSrc p
     then dsc !! 1
     else pkgField "MD5sum" p
   where
-    isSrc = isJust . fieldValue "Format"
     infos = map (split ' ') . filter (not . null) . lines . pkgField "Files" $ p
     dsc = fromJust . find ((== ".dsc") . takeExtension . (!! 3)) $ infos
 
 pkgFile :: Package -> String
-pkgFile p = if isSrc p
+pkgFile p = if pkgIsSrc p
     then dsc !! 3
     else pkgField "Filename" p
   where
-    isSrc = isJust . fieldValue "Format"
     infos = map (split ' ') . filter (not . null) . lines . pkgField "Files" $ p
     dsc = fromJust . find ((== ".dsc") . takeExtension . (!! 3)) $ infos
+
+pkgIsSrc :: Package -> Bool
+pkgIsSrc = isJust . fieldValue "Format"
 
 pkgField :: String -> Package -> String
 pkgField f p = case fieldValue f p of
@@ -266,9 +266,3 @@ split c s  = h : split c (drop 1 t)
 
 final :: Integral n => n -> [a] -> [a]
 final n xs = drop (length xs - fromIntegral n) xs
-
-mapFsts :: (a -> b) -> [(a, c)] -> [(b, c)]
-mapFsts f = map (\(x, y) -> (f x, y))
-
-mapSnds :: (a -> b) -> [(c, a)] -> [(c, b)]
-mapSnds f = map (\(x, y) -> (x, f y))
