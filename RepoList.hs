@@ -32,9 +32,6 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 import Network.Curl.Download
 import Network.Curl.Download.Lazy
 
-instance Show DebianVersion where
-    show = show . prettyDebianVersion
-
 type Package     = Paragraph
 type PackageList = Control
 
@@ -128,7 +125,7 @@ putIndex :: String -> Index -> IO ()
 putIndex _ (Index s c a l) =
     putStr $ unlines . map showPackage . sortBy pkgCompare . unControl $ l
   where
-    showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (show $ pkgVersion p)
+    showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (showVersion . pkgVersion $ p)
 
 checkIndex :: String -> Index -> IO ()
 checkIndex m (Index s c a l) =
@@ -183,7 +180,7 @@ checkDups indexes =
         thd (_, _, x) = x
     in
         forM_ (dupInsts indexes) $ \((n, v, a), insts) -> do
-            hPutStrLn stderr $ printf "%s %s %s" n (show v) a
+            hPutStrLn stderr $ printf "%s %s %s" n (showVersion v) a
             forM_ insts $ \(s, c, h) ->
                 hPutStrLn stderr $ printf "%12s %-12s %s" s c h
 
@@ -254,6 +251,9 @@ md5 :: FilePath -> IO String
 md5 fp = do
     h <- MD5.hashlazy `liftM` LB.readFile fp
     return $ showHexBytes h ""
+
+showVersion :: DebianVersion -> String
+showVersion = show . prettyDebianVersion
 
 showHexBytes :: B.ByteString -> String -> String
 showHexBytes bs s = foldr showHexByte s (B.unpack bs)

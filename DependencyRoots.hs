@@ -95,4 +95,4 @@ pkgDeps p = names "Depends" ++ names "Recommends"
   where field = B.unpack . fromMaybe B.empty . flip fieldValue p
         rels = fromRight . parseRelations . field
         names = map (relName . head) . rels
-        relName (Rel name _ _) = unPkgName . unBinPkgName $ name
+        relName (Rel name _ _) = unBinPkgName name
