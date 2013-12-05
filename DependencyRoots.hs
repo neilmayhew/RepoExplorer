@@ -78,12 +78,19 @@ makeGraph deps = fst $ mkMapGraph nodes edges
 packageDeps :: Control -> [[String]]
 packageDeps c = map mkDeps pkgs
   where pkgs = filter pkgIsInstalled . unControl $ c
-        names = fromList . map pkgName $ pkgs
-        mkDeps p = pkgName p : filter installed (pkgDeps p)
+        names = fromList . map extName $ pkgs
+        mkDeps p = extName p : filter installed (pkgDeps p)
         installed name = name `member` names
+        extName p = if a /= baseArch && a /= "all" then n ++ ':' : a else n
+          where n = pkgName p
+                a = pkgArch p
+        baseArch = maybe "" pkgArch $ find (\p -> pkgName p == "base-files") pkgs
 
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
+
+pkgArch :: Package -> String
+pkgArch = maybe "" B.unpack . fieldValue "Architecture"
 
 pkgIsInstalled :: Package -> Bool
 pkgIsInstalled = maybe False isInstalled . fieldValue "Status"
