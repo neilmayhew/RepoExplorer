@@ -48,6 +48,7 @@ data Options = Options
     , optArches     :: String
     , optCheckSums  :: Bool
     , optCheckDups  :: Bool
+    , optCheckVers  :: Bool
     } deriving (Show, Data, Typeable)
 
 options = Options
@@ -57,6 +58,7 @@ options = Options
     , optArches     = ""    &= name "arches"      &= name "a" &= typ "NAMES" &= explicit &= help "Architectures to include"
     , optCheckSums  = False &= name "check-sums"  &= name "s"                &= explicit &= help "Check package sums"
     , optCheckDups  = False &= name "check-dups"  &= name "d"                &= explicit &= help "Check package duplicates"
+    , optCheckVers  = False &= name "check-vers"  &= name "v"                &= explicit &= help "Check package versions"
     }   &= program "RepoList"
         &= summary "List and optionally check repository contents"
         &= versionArg [summary "RepoList v0.5"]
@@ -80,10 +82,14 @@ main = do
 
     indexes <- getRepo mirror suites components arches
 
-    forM_ indexes (putIndex mirror)
+    when (not (optCheckSums args)
+       && not (optCheckDups args)
+       && not (optCheckVers args)) $
+        forM_ indexes (putIndex mirror)
 
-    when (optCheckSums args) $ forM_ indexes (checkIndex mirror)
+    when (optCheckSums args) $ checkSums indexes mirror
     when (optCheckDups args) $ checkDups indexes
+    when (optCheckVers args) $ checkVers indexes
 
 getRepo :: String -> [String] -> [String] -> [String] -> IO [Index]
 getRepo mirror suites components arches =
@@ -126,6 +132,10 @@ putIndex _ (Index s c a l) =
     putStr $ unlines . map showPackage . sortBy pkgCompare . unControl $ l
   where
     showPackage p = printf "%s %s %s %s %s" s c a (pkgName p) (showVersion . pkgVersion $ p)
+
+checkSums :: [Index] -> String -> IO ()
+checkSums indexes mirror =
+    forM_ indexes (checkIndex mirror)
 
 checkIndex :: String -> Index -> IO ()
 checkIndex m (Index s c a l) =
@@ -184,6 +194,122 @@ checkDups indexes =
             forM_ insts $ \(s, c, h) ->
                 hPutStrLn stderr $ printf "%12s %-12s %s" s c h
 
+data PkgInstance = PkgInstance
+    { instSuite     :: String
+    , instComponent :: String
+    , instArch      :: String
+    , instPkg       :: Package }
+
+instName    = pkgName    . instPkg
+instVersion = pkgVersion . instPkg
+
+instance Show PkgInstance where
+    show i = intercalate " " $ map ($i) [instSuite, instComponent, instArch, showVersion . instVersion]
+
+checkVers :: [Index] -> IO ()
+checkVers indexes =
+    let ixInsts (Index s c a l) = map (PkgInstance s c a) . unControl $ l
+        pkgInsts = groupSortBy instName . concatMap ixInsts
+        suites = nub . sort . map ixSuite $ indexes
+    in
+        mapM_ (checkPackageVersions suites) (pkgInsts indexes)
+
+type Suite = String
+
+data VersionError
+    = MissingSuites [Suite]
+    | MultipleComponents [Suite]
+    | InconsistentArches [Suite]
+    | DecreasingVersions [(Suite, Suite)]
+
+showVersionError :: VersionError -> String
+
+showVersionError (MissingSuites suites) =
+    printf "is missing from some suites: %s" (intercalate ", " suites)
+
+showVersionError (MultipleComponents comps) =
+    printf "is in multiple components: %s" (intercalate ", " comps)
+
+showVersionError (InconsistentArches suites) =
+    printf "has inconsistent versions within suites: %s"
+        (intercalate ", " suites)
+
+showVersionError (DecreasingVersions drops) =
+    printf "has inconsistent versions across suites: %s"
+        (intercalate ", " $ map showDrop drops)
+  where showDrop (a, b) = a ++ " > " ++ b
+
+checkPackageVersions :: [Suite] -> [PkgInstance] -> IO ()
+checkPackageVersions suites insts = do
+    let checks =
+            [ checkMissingSuites suites
+            , checkMultipleComponents
+            , checkInconsistentArches
+            , checkDecreasingVersions ]
+        errors = concatMap ($ insts) checks
+        name = pkgName . instPkg $ head insts
+        maintainers = nub . map (pkgMaintainer . instPkg) $ insts
+    when (not . null $ errors) $ do
+        hPutStrLn stderr $ printf "%s: %s" name (intercalate ", " maintainers)
+        forM_ errors $
+            hPutStrLn stderr . printf "  * %s" . showVersionError
+        forM_ insts $
+            hPutStrLn stderr . ("  " ++) . show
+
+checkMissingSuites :: [Suite] -> [PkgInstance] -> [VersionError]
+checkMissingSuites suites insts =
+    -- Present in all later suites after the first
+    let inSuites = nub . sort . map instSuite $ insts
+        missingFrom = dropWhile (/= head inSuites) suites \\ inSuites
+    in if not . null $ missingFrom
+    then [MissingSuites missingFrom]
+    else []
+
+checkMultipleComponents :: [PkgInstance] -> [VersionError]
+checkMultipleComponents insts =
+    -- Same component in all suites
+    let comps = nub . map instComponent $ insts
+    in if not . null . tail $ comps
+    then [MultipleComponents comps]
+    else []
+
+checkInconsistentArches :: [PkgInstance] -> [VersionError]
+checkInconsistentArches insts =
+    -- Same version across arches in one suite
+    let suiteInsts = groupSortBy instSuite insts
+        problems = filter (not . allSameVersion . sort . map instVersion) suiteInsts
+        allSameVersion (ver:vers) = all (ver `verIsPrefixOf`) vers
+        verIsPrefixOf ver1 ver2 =
+            let (e1, v1, r1) = evr ver1
+                (e2, v2, r2) = evr ver2
+            in  ver1 == ver2
+                || e1 == e2
+                   && (v1 `isPrefixOf` v2
+                       || v1 == v2
+                          && (fromMaybe "" r1 `isPrefixOf` fromMaybe "" r2))
+    in if not . null $ problems
+    then [InconsistentArches $ map (instSuite . head) problems]
+    else []
+
+checkDecreasingVersions :: [PkgInstance] -> [VersionError]
+checkDecreasingVersions insts =
+    -- Increasing version across suites
+    let suiteInsts = groupSortBy instSuite insts
+        suiteVers = map (minimumBy $ comparing instVersion) suiteInsts
+        drops = disordersBy ((<=) `on` instVersion) suiteVers
+    in if not . null $ drops
+    then [DecreasingVersions $ map (both instSuite) drops]
+    else []
+
+both :: (a -> b) -> (a, a) -> (b, b)
+both f = f *** f
+
+isOrderedBy :: (a -> a -> Bool) -> [a] -> Bool
+isOrderedBy rel xs = and $ zipWith rel xs (drop 1 xs)
+
+disordersBy :: (a -> a -> Bool) -> [a] -> [(a, a)]
+disordersBy rel xs = filter (not . uncurry rel) $ zip xs (drop 1 xs)
+
 groupSortBy :: (Eq b, Ord b) => (a -> b) -> [a] -> [[a]]
 groupSortBy field = groupBy ((==) `on` field) . sortBy (comparing field)
 
@@ -207,6 +333,9 @@ pkgVersion = parseDebianVersion . maybe "Unversioned" B.unpack . fieldValue "Ver
 
 pkgArch :: Package -> String
 pkgArch = maybe "None" B.unpack . fieldValue "Architecture"
+
+pkgMaintainer :: Package -> String
+pkgMaintainer = maybe "None" B.unpack . fieldValue "Maintainer"
 
 pkgHash :: Package -> String
 pkgHash p = if pkgIsSrc p
