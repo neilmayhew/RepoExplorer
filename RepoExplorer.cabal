@@ -1,0 +1,51 @@
+name: RepoExplorer
+version: 0.5.0.0
+cabal-version: >=1.10
+build-type: Simple
+license: MIT
+license-file: LICENSE
+copyright: 2010-2016 Neil Mayhew
+maintainer: Neil Mayhew <neil_mayhew@users.sourceforge.net>
+synopsis: A set of utilities for exploring Debian package repositories
+description:
+    The following utilities are available:
+    .
+    * RepoList
+    * DependencyRoots
+    .
+    Further utilities will be added later.
+category: Debian
+author: Neil Mayhew
+
+executable RepoList
+    main-is: RepoList.hs
+    buildable: True
+    default-language: Haskell2010
+    other-extensions: DeriveDataTypeable
+    build-depends:
+        base -any,
+        MissingH -any,
+        cmdargs -any,
+        debian -any,
+        parsec >=2.1.0.1 && <3.2,
+        bytestring >=0.9.1.7 && <0.11,
+        filepath >=1.1.0.4 && <1.5,
+        directory >=1.0.1.1 && <1.3,
+        unix >=2.4.0.2 && <2.8,
+        zlib >=0.5.2.0 && <0.7,
+        cryptohash -any,
+        download-curl -any
+
+executable DependencyRoots
+    main-is: DependencyRoots.hs
+    buildable: True
+    default-language: Haskell2010
+    other-extensions: DeriveDataTypeable
+    build-depends:
+        base -any,
+        MissingH -any,
+        cmdargs -any,
+        debian -any,
+        fgl >=5.4 && <5.6,
+        containers >=0.4 && <0.6,
+        bytestring >=0.9.1.7 && <0.11

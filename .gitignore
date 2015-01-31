@@ -2,3 +2,6 @@
 *.o
 *.prof
 *.stats
+
+/dist/
+/.cabal-sandbox/
