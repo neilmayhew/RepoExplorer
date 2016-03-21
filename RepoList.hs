@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE CPP, DeriveDataTypeable #-}
 
 module Main where
 
@@ -328,8 +328,12 @@ pkgCompare p1 p2 =
 pkgName :: Package -> String
 pkgName = maybe "Unnamed" B.unpack . fieldValue "Package"
 
+#if !MIN_VERSION_debian(3,89,0)
+parseDebianVersion' = parseDebianVersion
+#endif
+
 pkgVersion :: Package -> DebianVersion
-pkgVersion = parseDebianVersion . maybe "Unversioned" B.unpack . fieldValue "Version"
+pkgVersion = parseDebianVersion' . maybe "Unversioned" B.unpack . fieldValue "Version"
 
 pkgArch :: Package -> String
 pkgArch = maybe "None" B.unpack . fieldValue "Architecture"

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE CPP, DeriveDataTypeable #-}
 
 module Main where
 
@@ -96,6 +96,13 @@ pkgIsInstalled :: Package -> Bool
 pkgIsInstalled = maybe False isInstalled . fieldValue "Status"
   where isInstalled v = parseStatus v !! 2 == B.pack "installed"
         parseStatus = B.split ' ' . stripWS
+
+#if !MIN_VERSION_debian(3,64,0)
+unBinPkgName = id
+#elif !MIN_VERSION_debian(3,69,0)
+unBinPkgName_ = unPkgName . unBinPkgName
+#define unBinPkgName unBinPkgName_
+#endif
 
 pkgDeps :: Package -> [String]
 pkgDeps p = names "Depends" ++ names "Recommends"
