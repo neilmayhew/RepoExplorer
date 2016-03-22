@@ -1,0 +1,28 @@
+Source: repoexplorer
+Maintainer: Neil Mayhew <neil_mayhew@users.sourceforge.net>
+Priority: extra
+Section: haskell
+Standards-Version: 3.9.7
+Build-Depends: debhelper (>= 9),
+ haskell-devscripts (>= 0.8),
+ cdbs,
+ ghc,
+ cabal-install,
+ libghc-cmdargs-dev,
+ libghc-cryptohash-dev,
+ libghc-debian-dev,
+ libghc-download-curl-dev,
+ libghc-fgl-dev,
+ libghc-missingh-dev,
+
+Package: repoexplorer
+Architecture: any
+Section: misc
+Depends: ${shlibs:Depends}, ${misc:Depends},
+Description: A set of utilities for exploring Debian package repositories
+ The following utilities are available:
+ .
+ * RepoList
+ * DependencyRoots
+ .
+ Further utilities will be added later.

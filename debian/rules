@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+
+# Avoid accessing the home directory
+export CABAL_CONFIG = $(CURDIR)/debian/cabal.config
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/hlibrary.mk
+
+build/repoexplorer:: build-ghc-stamp
