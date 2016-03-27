@@ -1,0 +1,3 @@
+[submodule "haskell-download-curl"]
+	path = haskell-download-curl
+	url = ../haskell-download-curl.git
