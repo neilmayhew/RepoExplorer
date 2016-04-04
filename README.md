@@ -24,33 +24,6 @@ Run each utility with `--help` for a detailed description of how to use it.
 Installing
 ----------
 
-### NixOS
-
-There's a `default.nix` in the top-level directory, so to build binaries, run:
-
-```Bash
-nix-build
-```
-
-The binaries will then be available via `result/bin`.
-
-To make `repoexplorer` installable as a package on your system, add the following to `~/.nixpkgs/config.nix`:
-
-```Nix
-{
-  packageOverrides = pkgs:
-  {
-    repoexplorer = pkgs.callPackage ../path/to/RepoExplorer {};
-  };
-}
-```
-
-Then install it with:
-
-```Bash
-nix-env -f '<nixpkgs>' -iA repoexplorer
-```
-
 ### Debian/Ubuntu
 
 #### Locally-built binaries
@@ -115,6 +88,33 @@ origtargz()
 If you want to build packages in a cleanroom environment such as `pbuilder`, you can create source packages by omitting the `apt-get-build-depends` commands and using `debuild -nc -S -sa -us -uc` instead of `debuild -b -us -uc` (although make sure your working directory is clean first).
 
 You'll need to make the `libghc-download-curl-dev` binary available when building `repoexplorer`.
+
+### NixOS
+
+There's a `default.nix` in the top-level directory, so to build binaries, run:
+
+```Bash
+nix-build
+```
+
+The binaries will then be available via `result/bin`.
+
+To make `repoexplorer` installable as a package on your system, add the following to `~/.nixpkgs/config.nix`:
+
+```Nix
+{
+  packageOverrides = pkgs:
+  {
+    repoexplorer = pkgs.callPackage ../path/to/RepoExplorer {};
+  };
+}
+```
+
+Then install it with:
+
+```Bash
+nix-env -f '<nixpkgs>' -iA repoexplorer
+```
 
 ### Building from source on any platform
 
