@@ -19,9 +19,6 @@ author: Neil Mayhew
 
 executable RepoList
     main-is: RepoList.hs
-    buildable: True
-    default-language: Haskell2010
-    other-extensions: DeriveDataTypeable
     build-depends:
         base -any,
         MissingH -any,
@@ -35,12 +32,11 @@ executable RepoList
         zlib >=0.5.2.0 && <0.7,
         cryptohash -any,
         download-curl -any
+    default-language: Haskell2010
+    other-extensions: DeriveDataTypeable
 
 executable DependencyRoots
     main-is: DependencyRoots.hs
-    buildable: True
-    default-language: Haskell2010
-    other-extensions: DeriveDataTypeable
     build-depends:
         base -any,
         MissingH -any,
@@ -49,3 +45,6 @@ executable DependencyRoots
         fgl >=5.4 && <5.6,
         containers >=0.4 && <0.6,
         bytestring >=0.9.1.7 && <0.11
+    default-language: Haskell2010
+    other-extensions: DeriveDataTypeable
+
