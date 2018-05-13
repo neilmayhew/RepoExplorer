@@ -11,7 +11,6 @@ import Data.Set (fromList, member)
 import Data.List
 import Data.Maybe
 import Data.Either
-import Data.Either.Utils
 import Data.Ord
 import Control.Monad
 import System.IO
@@ -19,6 +18,11 @@ import System.IO
 import System.Console.CmdArgs.Implicit
 
 import qualified Data.ByteString.Char8 as B
+
+#if !MIN_VERSION_base(4,10,0)
+fromRight :: b -> Either a b -> b
+fromRight d = either (const d) id
+#endif
 
 type Package = Paragraph
 type FieldValue = B.ByteString
@@ -107,6 +111,6 @@ unBinPkgName_ = unPkgName . unBinPkgName
 pkgDeps :: Package -> [String]
 pkgDeps p = names "Depends" ++ names "Recommends"
   where field = B.unpack . fromMaybe B.empty . flip fieldValue p
-        rels = fromRight . parseRelations . field
+        rels = fromRight [] . parseRelations . field
         names = map (relName . head) . rels
         relName (Rel name _ _) = unBinPkgName name

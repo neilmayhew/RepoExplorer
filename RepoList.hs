@@ -12,7 +12,6 @@ import Data.Ord
 import Data.List
 import Data.Maybe
 import Data.Either
-import Data.Either.Utils
 import Data.Function
 import Numeric
 import Control.Monad
@@ -31,6 +30,11 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 
 import Network.Curl.Download
 import Network.Curl.Download.Lazy
+
+#if !MIN_VERSION_base(4,10,0)
+fromRight :: b -> Either a b -> b
+fromRight d = either (const d) id
+#endif
 
 type Package     = Paragraph
 type PackageList = Control
@@ -107,9 +111,9 @@ getSuite mirror suite uComponents uArches = do
     getReleaseParts m s = do
         let location = m </> "dists" </> s </> "Release"
         releaseData <- readURI location
-        let release = head . unControl . fromRight . parseControl location $ releaseData
-            components = words $ fieldValue' "Components"    release
-            arches     = words $ fieldValue' "Architectures" release
+        let release = head . unControl <$> parseControl location releaseData
+            components = fromRight [] $ words . fieldValue' "Components"    <$> release
+            arches     = fromRight [] $ words . fieldValue' "Architectures" <$> release
         return (components, arches ++ ["source"])
       where
         fieldValue' name = maybe "" B.unpack . fieldValue name
