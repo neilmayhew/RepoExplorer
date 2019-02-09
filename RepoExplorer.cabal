@@ -42,8 +42,8 @@ executable DependencyRoots
         MissingH -any,
         cmdargs -any,
         debian -any,
-        fgl >=5.4 && <5.7,
-        containers >=0.4 && <0.6,
+        fgl >=5.4 && <5.8,
+        containers >=0.4 && <0.7,
         bytestring >=0.9.1.7 && <0.11
     default-language: Haskell2010
     other-extensions: DeriveDataTypeable
