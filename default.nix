@@ -1,11 +1,11 @@
-{ stdenv, mkDerivation
+{ stdenv, lib, mkDerivation
 , base, bytestring, cmdargs, containers, cryptohash, debian, directory
 , download-curl, fgl, filepath, MissingH, parsec, unix, zlib
 }:
 mkDerivation {
   pname = "RepoExplorer";
   version = "0.5.0.0";
-  src = ./.;
+  src = lib.cleanSource ./.;
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
