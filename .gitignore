@@ -4,4 +4,6 @@
 *.stats
 
 /dist/
+/dist-newstyle/
 /.cabal-sandbox/
+/cabal.project.local
