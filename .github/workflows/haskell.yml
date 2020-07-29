@@ -32,6 +32,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        apt-get install -y --no-install-recommends curl4-openssl-dev
         cabal update
         cabal build --only-dependencies --enable-tests --enable-benchmarks
     - name: Build
