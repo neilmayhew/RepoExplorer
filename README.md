@@ -131,15 +131,40 @@ sudo apt-get install -y --no-install-recommends \
 
 On **Windows** you may be able to install them using Cygwin.
 
+Run `cabal --version` to see which version you have, and then use the corresponding set of commands below.
+
+It takes a while to build the dependencies, but the build itself is relatively short. It produces binaries in the `dist-newstyle` or `dist` subdirectory. Copy these to `~/bin`, `/usr/local/bin` or any other convenient place:
+
+```Bash
+sudo install -p $(find dist* -type f -perm -100) /usr/local/bin
+```
+
+#### Cabal 3.x or later ####
+
 Then execute the following commands:
 
 ```Bash
 cabal update
+cabal build -j
+```
+
+#### Cabal 2.x ####
+
+Then execute the following commands:
+
+```Bash
+cabal v2-update
+cabal v2-build -j
+```
+
+#### Cabal 1.x ####
+
+Then execute the following commands:
+
+```Bash
 cabal sandbox init
+cabal update
 cabal install -j --only-dependencies
-cabal configure
 cabal build -j
 cabal sandbox delete
 ```
-
-It takes a while to build the dependencies, but the build itself is relatively short. It produces binaries in `dist/build/RepoList/RepoList` and `dist/build/DependencyRoots/DependencyRoots`. Copy these to `~/bin`, `/usr/local/bin` or any other convenient place.
