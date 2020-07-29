@@ -1,3 +1,5 @@
+![Haskell CI](https://github.com/neilmayhew/RepoExplorer/workflows/Haskell%20CI/badge.svg)
+
 RepoExplorer
 ============
 
