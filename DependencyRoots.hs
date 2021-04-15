@@ -1,4 +1,6 @@
-{-# LANGUAGE CPP, DeriveDataTypeable #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TupleSections #-}
 
 module Main where
 
@@ -8,10 +10,9 @@ import Debian.Relation
 import Data.Graph.Inductive
 import Data.Tree
 import Data.Set (fromList, member)
-import Data.List (find, intercalate, sortBy)
+import Data.List (find, intercalate, sortOn)
 import Data.Maybe
 import Data.Either
-import Data.Ord
 import System.IO
 
 import System.Console.CmdArgs.Implicit
@@ -47,7 +48,7 @@ options = Options
 main :: IO ()
 main = do
     args <- cmdArgs options
-    (parseControlFromFile $ statusFile args)
+    parseControlFromFile (statusFile args)
         >>= either (putErr "Parse error") (putDeps (style args) . packageDeps)
   where putDeps style = case style of
             Roots  -> putRoots graphRoots  showAlts
@@ -59,8 +60,8 @@ putErr :: Show e => String -> e -> IO ()
 putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
 putRoots :: (Gr String () -> Forest String) -> (Tree String -> String) -> [[String]] -> IO ()
-putRoots fRoots fShow = mapM_ putStrLn . map fShow . sortForest . fRoots . makeGraph
-  where sortForest = sortBy (comparing rootLabel)
+putRoots fRoots fShow = mapM_ (putStrLn . fShow) . sortForest . fRoots . makeGraph
+  where sortForest = sortOn rootLabel
 
 graphRoots :: Gr a b -> Forest a
 graphRoots g = map labelAlts alternates
@@ -78,7 +79,7 @@ makeGraph :: [[String]] -> Gr String ()
 makeGraph deps = fst $ mkMapGraph nodes edges
   where nodes = map head deps
         edges = concatMap mkEdges deps
-        mkEdges (n : sucs) = map (\s -> (n, s, ())) sucs
+        mkEdges (n : sucs) = map (n,, ()) sucs
         mkEdges _ = error "Empty deps"
 
 packageDeps :: Control -> [[String]]

@@ -19,6 +19,7 @@ import Data.List
     , nubBy
     , sort
     , sortBy
+    , sortOn
     )
 import Data.Maybe
 import Data.Either
@@ -107,7 +108,7 @@ main = do
 
 getRepo :: String -> [String] -> [String] -> [String] -> IO [Index]
 getRepo mirror suites components arches =
-    concat `liftM` forM (sort suites) (\s -> getSuite mirror s components arches)
+    concat <$> forM (sort suites) (\s -> getSuite mirror s components arches)
 
 getSuite :: String -> String -> [String] -> [String] -> IO [Index]
 getSuite mirror suite uComponents uArches = do
@@ -133,7 +134,7 @@ getIndex m (s, c, a) = do
     let location = m </> "dists" </> s </> c </> archIndex a
         onError err = do putErr "Parse error" err
                          return $ Control []
-    result <- parseControl location `liftM` readZipped location
+    result <- parseControl location <$> readZipped location
     list <- either onError return result
     return $ Index s c a list
   where
@@ -184,7 +185,7 @@ checkPackageFile (s, c, a) pnm fnm psz pmd = do
     if not exists
         then putErr $ printf "File missing %s" fnm
         else do
-            fsz <- (toInteger . fileSize) `liftM` getFileStatus fnm
+            fsz <- toInteger . fileSize <$> getFileStatus fnm
             if fsz /= psz
                 then putErr $ printf "Size mismatch: %d instead of %d" fsz psz
                 else do
@@ -222,7 +223,7 @@ instVersion :: PkgInstance -> DebianVersion
 instVersion = pkgVersion . instPkg
 
 instance Show PkgInstance where
-    show i = intercalate " " $ map ($i) [instSuite, instComponent, instArch, showVersion . instVersion]
+    show i = unwords $ map ($i) [instSuite, instComponent, instArch, showVersion . instVersion]
 
 checkVers :: [Index] -> IO ()
 checkVers indexes =
@@ -267,7 +268,7 @@ checkPackageVersions suites insts = do
         errors = concatMap ($ insts) checks
         name = pkgName . instPkg $ head insts
         maintainers = nub . map (pkgMaintainer . instPkg) $ insts
-    when (not . null $ errors) $ do
+    unless (null errors) $ do
         hPutStrLn stderr $ printf "%s: %s" name (intercalate ", " maintainers)
         forM_ errors $
             hPutStrLn stderr . printf "  * %s" . showVersionError
@@ -279,17 +280,13 @@ checkMissingSuites suites insts =
     -- Present in all later suites after the first
     let inSuites = nub . sort . map instSuite $ insts
         missingFrom = dropWhile (/= head inSuites) suites \\ inSuites
-    in if not . null $ missingFrom
-    then [MissingSuites missingFrom]
-    else []
+    in [MissingSuites missingFrom | not $ null missingFrom]
 
 checkMultipleComponents :: [PkgInstance] -> [VersionError]
 checkMultipleComponents insts =
     -- Same component in all suites
     let comps = nub . map instComponent $ insts
-    in if not . null . tail $ comps
-    then [MultipleComponents comps]
-    else []
+    in [MultipleComponents comps | (_:_:_) <- comps]
 
 checkInconsistentArches :: [PkgInstance] -> [VersionError]
 checkInconsistentArches insts =
@@ -306,9 +303,7 @@ checkInconsistentArches insts =
                    && (v1 `isPrefixOf` v2
                        || v1 == v2
                           && (fromMaybe "" r1 `isPrefixOf` fromMaybe "" r2))
-    in if not . null $ problems
-    then [InconsistentArches $ map (instSuite . head) problems]
-    else []
+    in [InconsistentArches $ map (instSuite . head) problems | not $ null problems]
 
 checkDecreasingVersions :: [PkgInstance] -> [VersionError]
 checkDecreasingVersions insts =
@@ -316,9 +311,7 @@ checkDecreasingVersions insts =
     let suiteInsts = groupSortBy instSuite insts
         suiteVers = map (minimumBy $ comparing instVersion) suiteInsts
         drops = disordersBy ((<=) `on` instVersion) suiteVers
-    in if not . null $ drops
-    then [DecreasingVersions $ map (both instSuite) drops]
-    else []
+    in [DecreasingVersions $ map (both instSuite) drops | not $ null drops]
 
 both :: (a -> b) -> (a, a) -> (b, b)
 both f = f *** f
@@ -330,7 +323,7 @@ disordersBy :: (a -> a -> Bool) -> [a] -> [(a, a)]
 disordersBy rel xs = filter (not . uncurry rel) $ zip xs (drop 1 xs)
 
 groupSortBy :: Ord b => (a -> b) -> [a] -> [[a]]
-groupSortBy field = groupBy ((==) `on` field) . sortBy (comparing field)
+groupSortBy field = groupBy ((==) `on` field) . sortOn field
 
 combineAssocs :: Ord a => [(a, b)] -> [(a, [b])]
 combineAssocs = map combine . groupSortBy fst
@@ -385,7 +378,7 @@ pkgField f p = case fieldValue f p of
     Just v -> B.unpack v
 
 readZipped :: String -> IO B.ByteString
-readZipped location = decompress `liftM` readLazyURI location
+readZipped location = decompress <$> readLazyURI location
   where decompress = B.concat . LB.toChunks . GZip.decompress
 
 readLazyURI :: String -> IO LB.ByteString
@@ -401,7 +394,7 @@ putErr msg e = hPutStrLn stderr $ msg ++ ": " ++ show e
 
 md5 :: FilePath -> IO String
 md5 fp = do
-    h <- MD5.hashlazy `liftM` LB.readFile fp
+    h <- MD5.hashlazy <$> LB.readFile fp
     return $ showHexBytes h ""
 
 showVersion :: DebianVersion -> String
