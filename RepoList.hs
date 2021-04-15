@@ -17,7 +17,6 @@ import Numeric
 import Control.Monad
 import Control.Arrow
 import System.IO
-import System.IO.HVFS
 import System.Environment
 import System.FilePath
 import System.Directory
