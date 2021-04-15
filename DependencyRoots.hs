@@ -8,11 +8,10 @@ import Debian.Relation
 import Data.Graph.Inductive
 import Data.Tree
 import Data.Set (fromList, member)
-import Data.List
+import Data.List (find, intercalate, sortBy)
 import Data.Maybe
 import Data.Either
 import Data.Ord
-import Control.Monad
 import System.IO
 
 import System.Console.CmdArgs.Implicit
@@ -36,6 +35,7 @@ data Options = Options
     , style      :: Style }
     deriving (Show, Data, Typeable)
 
+options :: Options
 options = Options
     { statusFile = def &= typ "STATUSFILE" &= argPos 0 &= opt "/var/lib/dpkg/status"
     , style = enum [Roots &= help "Show dependency roots (default)", Forest &= help "Show dependency forest"]
@@ -44,6 +44,7 @@ options = Options
         &= summary "DependencyRoots v0.5"
         &= details ["STATUSFILE defaults to /var/lib/dpkg/status"]
 
+main :: IO ()
 main = do
     args <- cmdArgs options
     (parseControlFromFile $ statusFile args)
@@ -78,6 +79,7 @@ makeGraph deps = fst $ mkMapGraph nodes edges
   where nodes = map head deps
         edges = concatMap mkEdges deps
         mkEdges (n : sucs) = map (\s -> (n, s, ())) sucs
+        mkEdges _ = error "Empty deps"
 
 packageDeps :: Control -> [[String]]
 packageDeps c = map mkDeps pkgs

@@ -3,13 +3,23 @@
 module Main where
 
 import Debian.Control.ByteString
-import Debian.Relation
 import Debian.Version
 import System.Console.CmdArgs.Implicit
 import Text.ParserCombinators.Parsec.Error
 import Text.Printf
 import Data.Ord
 import Data.List
+    ( (\\)
+    , find
+    , groupBy
+    , intercalate
+    , isPrefixOf
+    , minimumBy
+    , nub
+    , nubBy
+    , sort
+    , sortBy
+    )
 import Data.Maybe
 import Data.Either
 import Data.Function
@@ -17,7 +27,6 @@ import Numeric
 import Control.Monad
 import Control.Arrow
 import System.IO
-import System.Environment
 import System.FilePath
 import System.Directory
 import System.Posix.Files
@@ -54,6 +63,7 @@ data Options = Options
     , optCheckVers  :: Bool
     } deriving (Show, Data, Typeable)
 
+options :: Options
 options = Options
     { argMirror     = ""    &= argPos 0                       &= typ "MIRROR"
     , argSuites     = []    &= args                           &= typ "SUITES"
@@ -73,6 +83,7 @@ options = Options
         , "    RepoList http://ppa.launchpad.net/gnome3-team/gnome3/ubuntu precise quantal"
         , "    RepoList -c 'main non-free' -a mips http://www.deb-multimedia.org wheezy" ]
 
+main :: IO ()
 main = do
     args <- cmdArgs options
 
@@ -161,9 +172,11 @@ checkSourcePackage m (s, c, a) p = do
     let pnm = pkgField "Package"   p
         pdr = pkgField "Directory" p
         pfs = pkgField "Files"     p
-    forM_ (filter (not . null) . lines $ pfs) $ \l -> do
-        let [_, pmd, psz, pfn] = split ' ' l
-        checkPackageFile (s, c, a) pnm (m </> pdr </> pfn) (read psz) pmd
+    forM_ (filter (not . null) . lines $ pfs) $ \l ->
+        case split ' ' l of
+            [_, pmd, psz, pfn] ->
+                checkPackageFile (s, c, a) pnm (m </> pdr </> pfn) (read psz) pmd
+            _ -> error $ "Unreadable files line for source package " <> pkgName p <> ": " <> l
 
 checkPackageFile :: (String, String, String) -> String -> FilePath -> Integer -> String -> IO ()
 checkPackageFile (s, c, a) pnm fnm psz pmd = do
@@ -203,7 +216,9 @@ data PkgInstance = PkgInstance
     , instArch      :: String
     , instPkg       :: Package }
 
+instName :: PkgInstance -> String
 instName    = pkgName    . instPkg
+instVersion :: PkgInstance -> DebianVersion
 instVersion = pkgVersion . instPkg
 
 instance Show PkgInstance where
@@ -282,6 +297,7 @@ checkInconsistentArches insts =
     let suiteInsts = groupSortBy instSuite insts
         problems = filter (not . allSameVersion . sort . map instVersion) suiteInsts
         allSameVersion (ver:vers) = all (ver `verIsPrefixOf`) vers
+        allSameVersion _ = True
         verIsPrefixOf ver1 ver2 =
             let (e1, v1, r1) = evr ver1
                 (e2, v2, r2) = evr ver2
@@ -313,10 +329,10 @@ isOrderedBy rel xs = and $ zipWith rel xs (drop 1 xs)
 disordersBy :: (a -> a -> Bool) -> [a] -> [(a, a)]
 disordersBy rel xs = filter (not . uncurry rel) $ zip xs (drop 1 xs)
 
-groupSortBy :: (Eq b, Ord b) => (a -> b) -> [a] -> [[a]]
+groupSortBy :: Ord b => (a -> b) -> [a] -> [[a]]
 groupSortBy field = groupBy ((==) `on` field) . sortBy (comparing field)
 
-combineAssocs :: (Eq a, Ord a) => [(a, b)] -> [(a, [b])]
+combineAssocs :: Ord a => [(a, b)] -> [(a, [b])]
 combineAssocs = map combine . groupSortBy fst
   where combine g = (fst . head $ g, map snd g)
 
@@ -393,10 +409,11 @@ showVersion = show . prettyDebianVersion
 
 showHexBytes :: B.ByteString -> String -> String
 showHexBytes bs s = foldr showHexByte s (B.unpack bs)
+showHexByte :: Enum a => a -> String -> [Char]
 showHexByte b = tail . showHex (0x100 + fromEnum b)
 
 split :: Eq a => a -> [a] -> [[a]]
-split c [] = []
+split _ [] = []
 split c s  = h : split c (drop 1 t)
   where (h, t) = break (== c) s
 
