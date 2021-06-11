@@ -1,4 +1,4 @@
-{ stdenv, lib, mkDerivation
+{ lib, mkDerivation
 , base, bytestring, cmdargs, containers, cryptohash, debian, directory
 , download-curl, fgl, filepath, MissingH, parsec, unix, zlib
 }:
@@ -13,5 +13,5 @@ mkDerivation {
     download-curl fgl filepath MissingH parsec unix zlib
   ];
   description = "A set of utilities for exploring Debian package repositories";
-  license = stdenv.lib.licenses.mit;
+  license = lib.licenses.mit;
 }
