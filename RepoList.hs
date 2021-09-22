@@ -24,6 +24,7 @@ import Data.List
 import Data.Maybe
 import Data.Either
 import Data.Function
+import Network.Curl.Opts
 import Numeric
 import Control.Monad
 import Control.Arrow
@@ -382,11 +383,11 @@ readZipped location = decompress <$> readLazyURI location
   where decompress = B.concat . LB.toChunks . GZip.decompress
 
 readLazyURI :: String -> IO LB.ByteString
-readLazyURI url = either err return =<< openLazyURI url
+readLazyURI url = either err return =<< openLazyURIWithOpts [CurlFollowLocation True] url
   where err msg = error $ msg ++ " (" ++ url ++ ")"
 
 readURI :: String -> IO B.ByteString
-readURI url = either err return =<< openURI url
+readURI url = either err return =<< openURIWithOpts [CurlFollowLocation True] url
   where err msg = error $ msg ++ " (" ++ url ++ ")"
 
 putErr :: String -> ParseError -> IO ()
