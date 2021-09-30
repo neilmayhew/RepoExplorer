@@ -132,7 +132,8 @@ getSuite mirror suite uComponents uArches = do
 
 getIndex :: String -> (String, String, String) -> IO Index
 getIndex m (s, c, a) = do
-    let location = m </> "dists" </> s </> c </> archIndex a
+    let suiteBase = takeWhile (/= '/') s -- Handle eg stretch/updates
+        location = m </> "dists" </> suiteBase </> c </> archIndex a
         onError err = do putErr "Parse error" err
                          return $ Control []
     result <- parseControl location <$> readZipped location
