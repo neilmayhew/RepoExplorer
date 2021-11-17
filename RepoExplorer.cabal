@@ -17,6 +17,10 @@ description:
 category: Debian
 author: Neil Mayhew
 
+flag werror
+  description: Use-Werror
+  default: False
+
 executable RepoList
     main-is: RepoList.hs
     build-depends:
@@ -34,8 +38,9 @@ executable RepoList
         curl -any
     default-language: Haskell2010
     other-extensions: DeriveDataTypeable
-    ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates
-        -Wno-name-shadowing
+    ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -Wno-name-shadowing
+  if flag(werror)
+    ghc-options: -Werror
 
 executable DependencyRoots
     main-is: DependencyRoots.hs
@@ -48,5 +53,6 @@ executable DependencyRoots
         bytestring >=0.9.1.7 && <0.11
     default-language: Haskell2010
     other-extensions: DeriveDataTypeable
-    ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates
-        -Wno-name-shadowing
+    ghc-options: -Wall -Wcompat -Wredundant-constraints -Wincomplete-uni-patterns -Wincomplete-record-updates -Wno-name-shadowing
+  if flag(werror)
+    ghc-options: -Werror
