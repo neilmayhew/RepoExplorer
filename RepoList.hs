@@ -225,7 +225,7 @@ instVersion :: PkgInstance -> DebianVersion
 instVersion = pkgVersion . instPkg
 
 instance Show PkgInstance where
-    show i = unwords $ map ($i) [instSuite, instComponent, instArch, showVersion . instVersion]
+    show i = unwords $ map ($ i) [instSuite, instComponent, instArch, showVersion . instVersion]
 
 checkVers :: [Index] -> IO ()
 checkVers indexes =
