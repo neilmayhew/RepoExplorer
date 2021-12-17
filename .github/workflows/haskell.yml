@@ -18,9 +18,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@main
 
-    - name: Haskell setup
-      uses: haskell/actions/setup@main
-
     - name: Cache
       uses: actions/cache@main
       env:
@@ -32,6 +29,9 @@ jobs:
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
+
+    - name: Haskell setup
+      uses: haskell/actions/setup@main
 
     - name: Install dependencies
       run: |
