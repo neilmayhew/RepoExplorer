@@ -16,10 +16,10 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@v3.0.0
 
     - name: Cache
-      uses: actions/cache@main
+      uses: actions/cache@v2.1.7
       env:
         cache-name: cache-cabal
       with:
@@ -31,7 +31,7 @@ jobs:
           ${{ runner.os }}-
 
     - name: Haskell setup
-      uses: haskell/actions/setup@main
+      uses: haskell/actions/setup@v1.2.9
 
     - name: Install dependencies
       run: |
