@@ -35,7 +35,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        sudo apt-get install -y libcurl4-openssl-dev
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev
         cabal update
         cabal build --only-dependencies --enable-tests --enable-benchmarks
 
