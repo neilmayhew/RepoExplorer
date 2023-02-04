@@ -48,7 +48,7 @@ executable DependencyRoots
         base -any,
         cmdargs -any,
         debian -any,
-        fgl >=5.4 && <5.8,
+        fgl >=5.4 && <5.9,
         containers >=0.4 && <0.7,
         bytestring >=0.9.1.7 && <0.12
     default-language: Haskell2010
