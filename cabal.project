@@ -2,8 +2,8 @@ packages: *.cabal
 
 source-repository-package
   type: git
-  location: https://github.com/neilmayhew/haskell-curl.git
-  tag: 287d48b64223dc91c05bb72250110ee378086213
+  location: https://github.com/neilmayhew/debian-haskell.git
+  tag: ce3068530de7168528a598433d74860a87929b28
 
 allow-newer: feed:base
 
