@@ -66,8 +66,8 @@ putRoots fRoots fShow = mapM_ (putStrLn . fShow) . sortForest . fRoots . makeGra
 graphRoots :: Gr a b -> Forest a
 graphRoots g = map labelAlts alternates
   where forest = dff (topsort g) g
-        alternates = map (ancestors . rootLabel) forest
-        ancestors n = head $ rdff [n] g
+        alternates = concatMap (ancestors . rootLabel) forest
+        ancestors n = take 1 $ rdff [n] g
         labelAlts = fmap (fromJust . lab g)
 
 graphForest :: Gr a b -> Forest a
@@ -77,7 +77,7 @@ graphForest g = map labelTree forest
 
 makeGraph :: [[String]] -> Gr String ()
 makeGraph deps = fst $ mkMapGraph nodes edges
-  where nodes = map head deps
+  where nodes = concatMap (take 1) deps
         edges = concatMap mkEdges deps
         mkEdges (n : sucs) = map (n,, ()) sucs
         mkEdges _ = error "Empty deps"
@@ -115,5 +115,5 @@ pkgDeps :: Package -> [String]
 pkgDeps p = names "Depends" ++ names "Recommends"
   where field = B.unpack . fromMaybe B.empty . flip fieldValue p
         rels = fromRight [] . parseRelations . field
-        names = map (relName . head) . rels
+        names = concatMap (map relName . take 1) . rels
         relName (Rel name _ _) = unBinPkgName name

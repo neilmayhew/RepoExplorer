@@ -11,7 +11,6 @@ import Data.Ord
 import Data.List
     ( (\\)
     , find
-    , groupBy
     , intercalate
     , isPrefixOf
     , minimumBy
@@ -19,10 +18,8 @@ import Data.List
     , nubBy
     , sort
     , sortBy
-    , sortOn
     )
 import Data.Maybe
-import Data.Either
 import Data.Function
 import Network.Curl.Opts
 import Numeric
@@ -37,6 +34,7 @@ import qualified Codec.Compression.GZip as GZip
 import qualified Crypto.Hash.MD5 as MD5
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
+import qualified Data.List.NonEmpty as NE
 
 import Network.Curl.Download
 import Network.Curl.Download.Lazy
@@ -123,9 +121,9 @@ getSuite mirror suite uComponents uArches = do
     getReleaseParts m s = do
         let location = m </> "dists" </> s </> "Release"
         releaseData <- readURI location
-        let release = head . unControl <$> parseControl location releaseData
-            components = fromRight [] $ words . fieldValue' "Components"    <$> release
-            arches     = fromRight [] $ words . fieldValue' "Architectures" <$> release
+        let release = either (const []) unControl $ parseControl location releaseData
+            components = words . fieldValue' "Components"    =<< release
+            arches     = words . fieldValue' "Architectures" =<< release
         return (components, arches ++ ["source"])
       where
         fieldValue' name = maybe "" B.unpack . fieldValue name
@@ -268,7 +266,7 @@ checkPackageVersions suites insts = do
             , checkInconsistentArches
             , checkDecreasingVersions ]
         errors = concatMap ($ insts) checks
-        name = pkgName . instPkg $ head insts
+        name = maybe "unknown" (pkgName . instPkg) $ listToMaybe insts
         maintainers = nub . map (pkgMaintainer . instPkg) $ insts
     unless (null errors) $ do
         hPutStrLn stderr $ printf "%s: %s" name (intercalate ", " maintainers)
@@ -281,7 +279,9 @@ checkMissingSuites :: [Suite] -> [PkgInstance] -> [VersionError]
 checkMissingSuites suites insts =
     -- Present in all later suites after the first
     let inSuites = nub . sort . map instSuite $ insts
-        missingFrom = dropWhile (/= head inSuites) suites \\ inSuites
+        missingFrom = case inSuites of
+            (s : _) -> dropWhile (/= s) suites \\ inSuites
+            _ -> []
     in [MissingSuites missingFrom | not $ null missingFrom]
 
 checkMultipleComponents :: [PkgInstance] -> [VersionError]
@@ -305,7 +305,7 @@ checkInconsistentArches insts =
                    && (v1 `isPrefixOf` v2
                        || v1 == v2
                           && (fromMaybe "" r1 `isPrefixOf` fromMaybe "" r2))
-    in [InconsistentArches $ map (instSuite . head) problems | not $ null problems]
+    in [InconsistentArches $ concatMap (map instSuite . take 1) problems | not $ null problems]
 
 checkDecreasingVersions :: [PkgInstance] -> [VersionError]
 checkDecreasingVersions insts =
@@ -325,11 +325,11 @@ disordersBy :: (a -> a -> Bool) -> [a] -> [(a, a)]
 disordersBy rel xs = filter (not . uncurry rel) $ zip xs (drop 1 xs)
 
 groupSortBy :: Ord b => (a -> b) -> [a] -> [[a]]
-groupSortBy field = groupBy ((==) `on` field) . sortOn field
+groupSortBy field = map NE.toList . NE.groupAllWith field
 
 combineAssocs :: Ord a => [(a, b)] -> [(a, [b])]
-combineAssocs = map combine . groupSortBy fst
-  where combine g = (fst . head $ g, map snd g)
+combineAssocs = map combine . NE.groupAllWith fst
+  where combine g = (fst $ NE.head g, NE.toList $ NE.map snd g)
 
 pkgCompare :: Package -> Package -> Ordering
 pkgCompare p1 p2 =
@@ -405,7 +405,7 @@ showVersion = show . prettyDebianVersion
 showHexBytes :: B.ByteString -> String -> String
 showHexBytes bs s = foldr showHexByte s (B.unpack bs)
 showHexByte :: Enum a => a -> String -> [Char]
-showHexByte b = tail . showHex (0x100 + fromEnum b)
+showHexByte b = drop 1 . showHex (0x100 + fromEnum b)
 
 split :: Eq a => a -> [a] -> [[a]]
 split _ [] = []
