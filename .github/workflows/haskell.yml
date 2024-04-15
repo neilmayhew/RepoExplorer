@@ -41,15 +41,21 @@ jobs:
       with:
         ghc-version: ${{ matrix.ghc }}
 
-    - name: Install dependencies
+    - name: Install native dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev
+
+    - name: Configure
+      run: |
         cabal update
-        cabal build --only-dependencies --enable-tests --enable-benchmarks
+        cabal configure --enable-tests --enable-benchmarks -f werror
+
+    - name: Build dependencies
+      run: cabal build --only-dependencies
 
     - name: Build
-      run: cabal build --enable-tests --enable-benchmarks -f werror all
+      run: cabal build all
 
     - name: Run tests
       run: cabal test all
