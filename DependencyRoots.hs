@@ -29,12 +29,12 @@ type FieldValue = B.ByteString
 type PackageName = FieldValue
 
 data Style = Roots | Forest
-    deriving (Show, Data, Typeable)
+    deriving (Show, Data)
 
 data Options = Options
     { statusFile :: String
     , style      :: Style }
-    deriving (Show, Data, Typeable)
+    deriving (Show, Data)
 
 options :: Options
 options = Options

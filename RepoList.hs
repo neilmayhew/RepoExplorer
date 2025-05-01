@@ -61,7 +61,7 @@ data Options = Options
     , optCheckSums  :: Bool
     , optCheckDups  :: Bool
     , optCheckVers  :: Bool
-    } deriving (Show, Data, Typeable)
+    } deriving (Show, Data)
 
 options :: Options
 options = Options
