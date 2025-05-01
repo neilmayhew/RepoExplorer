@@ -7,13 +7,13 @@ RepoExplorer
 
 The following utilities are available:
 
-**RepoList**
+* **RepoList**
 
-*List and optionally check a repository's contents*
+  *List and optionally check a repository's contents*
 
-**DependencyRoots**
+* **DependencyRoots**
 
-*Calculate a minimal set of packages on your system that is sufficient to
+  *Calculate a minimal set of packages on your system that is sufficient to
 install all the other currently-installed packages via dependency*
 
 Further utilities will be added later.
@@ -38,12 +38,10 @@ sudo apt-get install -y --no-install-recommends \
 	libghc-{cmdargs,cryptohash,debian,fgl,missingh,curl,feed,tagsoup,xml}-dev
 
 cabal update
-cabal install --only-dependencies
-cabal configure
-cabal build
+cabal install --installdir=/usr/local/bin --install-method=copy
 ```
 
-This will produce binaries in `dist/build/RepoList/RepoList` and `dist/build/DependencyRoots/DependencyRoots`. Copy these to `~/bin`, `/usr/local/bin` or any other convenient place.
+You can set `--installdir` to any convenient place that's on your `PATH`.
 
 You can find the definitive list of build dependencies in `debian/control`, omitting `debhelper`, `haskell-devscripts` and `cdbs`, which are needed only for building packages, and `libghc-download-curl` which is no longer a system package and is installed using `cabal`.
 
@@ -52,23 +50,24 @@ You can find the definitive list of build dependencies in `debian/control`, omit
 You may find a Debian/Ubuntu package called `repoexplorer` in an unofficial repo somewhere. However, it's easy to build your own:
 
 ```Bash
+sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
 	devscripts fakeroot haskell-debian-utils \
-	libwww-perl file
+	libwww-perl file git
 
 git submodule update --init
 
 cd haskell-download-curl
-origtargz
+origtargz -u
 sudo apt-get-build-depends -y
 debuild -b -us -uc
-debuild clean
+debuild -- clean
 cd ..
 
 sudo dpkg -i libghc-download-curl-dev_*.deb
 sudo apt-get-build-depends -y
 debuild -b -us -uc
-debuild clean
+debuild -- clean
 ```
 
 This will produce a `repoexplorer_*.deb` file in the parent directory. Install it with `sudo dpkg -i`, or sign the changes file with `debsign` and upload it to a repository with `dput`.
@@ -120,7 +119,7 @@ nix-env -f '<nixpkgs>' -iA repoexplorer
 
 ### Building from source on any platform
 
-First you need some basic Haskell development tools installed. The easiest way to do this is to install the [Haskell Platform](https://www.haskell.org/platform/) for your OS. Note that on **Linux** you should use the Generic installer since the distro package may be too old, or may not exist. Also, you'll need to install `libgmp-dev` before running the Generic installer.
+First you need some basic Haskell development tools installed. The easiest way to do this is to install [ghcup](https://www.haskell.org/ghcup/).
 
 To build the dependent Haskell libraries, you'll need various C/C++ tools and libraries that they use. On **Mac**, they're all included with the command-line development tools. On **Debian/Ubuntu**, they can be installed with:
 
@@ -133,31 +132,29 @@ On **Windows** you may be able to install them using Cygwin.
 
 Run `cabal --version` to see which version you have, and then use the corresponding set of commands below.
 
-It takes a while to build the dependencies, but the build itself is relatively short. It produces binaries in the `dist-newstyle` or `dist` subdirectory. Copy these to `~/bin`, `/usr/local/bin` or any other convenient place:
+It takes a while to build the dependencies, but the build itself is relatively short. The `cabal` build tool can install the binaries to a directory of your choosing.
 
-```Bash
-sudo install -p $(find dist* -type f -perm -100) /usr/local/bin
-```
-
-#### Cabal 3.x or later ####
+#### Cabal 3.x or later
 
 Then execute the following commands:
 
 ```Bash
 cabal update
 cabal build -j
+cabal install --installdir=/usr/local/bin --install-method=copy
 ```
 
-#### Cabal 2.x ####
+#### Cabal 2.x
 
 Then execute the following commands:
 
 ```Bash
 cabal v2-update
 cabal v2-build -j
+cabal v2-install --installdir=/usr/local/bin --install-method=copy
 ```
 
-#### Cabal 1.x ####
+#### Cabal 1.x
 
 Then execute the following commands:
 
@@ -166,5 +163,6 @@ cabal sandbox init
 cabal update
 cabal install -j --only-dependencies
 cabal build -j
+cabal install --bindir=/usr/local/bin
 cabal sandbox delete
 ```
