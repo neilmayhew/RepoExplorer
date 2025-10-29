@@ -10,11 +10,13 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest]
         ghc: ['9.0.2', '9.2.8', '9.4.8', '9.6.7', '9.8.4', '9.10.3', '9.12.2']
       fail-fast: false
+
+    runs-on: ${{ matrix.os }}
 
     name: Build with GHC ${{ matrix.ghc }}
     steps:
@@ -36,10 +38,17 @@ jobs:
       with:
         ghc-version: ${{ matrix.ghc }}
 
-    - name: Install native dependencies
+    - name: Install native dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev
+
+    - name: Install native dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew update-if-needed
+        brew install curl
 
     - name: Configure
       run: |

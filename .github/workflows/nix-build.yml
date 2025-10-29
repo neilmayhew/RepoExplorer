@@ -11,10 +11,11 @@ jobs:
   build:
     strategy:
       matrix:
-        compiler: [ghc90, ghc92, ghc94, ghc96, ghc98, ghc910, ghc912]
+        os: [ubuntu-latest, macos-latest]
+        compiler: [ghc94, ghc96, ghc98, ghc910, ghc912]
       fail-fast: false
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
 
