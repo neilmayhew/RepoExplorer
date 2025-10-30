@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags: ["*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install nix
+      uses: cachix/install-nix-action@v31
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+
+    - name: Enable cachix
+      uses: cachix/cachix-action@v16
+      with:
+        name: neil-mayhew
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+    - name: Build
+      run: |
+        type=${{ matrix.os == 'macos-latest' && 'dynamic' || 'static' }}
+        nix build --accept-flake-config .#$type.ghc910
+
+    - name: Push to cachix
+      run: |
+        nix-store -qR --include-outputs $(nix-store -qd result) |
+          grep -v '\.drv$' |
+          cachix push neil-mayhew
+
+    - name: Create release archive
+      id: result
+      run: |
+        derivation=$(nix derivation show ./result | jq -r .[].env.pname)
+        version='${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}'
+        release=$derivation-$version
+        sudo mkdir "$release" && sudo cp -p $(find -L result -type f) "$release"
+        archive=$release-$(uname -s)-$(uname -m).tgz
+        tar -czf "$archive" "$release"
+        echo "archive=$archive" >>"$GITHUB_OUTPUT"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.os }}
+        path: ${{ steps.result.outputs.archive }}
+
+  release:
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true
+
+    - name: Create release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.result.outputs.version }}
+        target_commitish: ${{ github.sha }}
+        files: '*.tgz'
+        fail_on_unmatched_files: true
+        generate_release_notes: true
