@@ -2,9 +2,7 @@ name: Haskell CI
 
 on:
   push:
-    branches: [develop, main, master]
   pull_request:
-    branches: [develop, main, master]
   workflow_dispatch:  # For manual triggering
   schedule:
   - cron: "3 14 15 * *"  # 14:03 on the 15th of every month (UTC)
