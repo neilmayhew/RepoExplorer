@@ -116,4 +116,8 @@ pkgDeps p = names "Depends" ++ names "Recommends"
   where field = B.unpack . fromMaybe B.empty . flip fieldValue p
         rels = fromRight [] . parseRelations . field
         names = concatMap (map relName . take 1) . rels
-        relName (Rel name _ _) = unBinPkgName name
+#if MIN_VERSION_debian(4,1,1)
+        relName (RRel name _ _ _) = unBinPkgName name
+#else
+        relName (Rel name  _ _) = unBinPkgName name
+#endif
