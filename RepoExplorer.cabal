@@ -28,7 +28,7 @@ executable RepoList
     cmdargs,
     cryptohash-md5,
     curl,
-    debian,
+    debian >=4,
     directory >=1.0.1.1 && <1.4,
     download-curl,
     filepath >=1.1.0.4 && <1.6,
